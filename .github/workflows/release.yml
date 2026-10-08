@@ -1,0 +1,65 @@
+# Releases pethost: the tag v<version> builds the six binaries, stamped with the version, and
+# publishes them with their checksums as a GitHub release of this repository.
+#
+# This file defines what a release is made of. Three readers ask for exactly these addresses:
+# install.sh, install.ps1 and `pethost update` (internal/release).
+#
+#   releases/latest/download/version                         the newest release's version: "0.4.0"
+#   releases/download/v<version>/pethost-<os>-<cpu>[.exe]    darwin, linux, windows; amd64, arm64
+#   releases/download/v<version>/checksums.txt               sha256sum's line for each binary
+#
+# Copies of pethost that people have installed go on asking for these names: a file renamed
+# here is one their `pethost update` no longer finds.
+#
+# Nobody tags by hand. The source is written in Pethost's own repository, whose workflow copies
+# it here and pushes the tag when VERSION changed. That workflow may not write this directory:
+# this file is placed here by hand, and again when it changes there.
+#
+# Actions are GitHub's own only, each pinned to a commit.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write # The release.
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The toolchain the source is checked with before it is copied here. go.mod names the
+      # oldest one a `go install` may use, which is not the one a release is built with.
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.27.1'
+
+      - name: Build the six binaries, the checksums and the version
+        run: |
+          version=${GITHUB_REF_NAME#v}
+          [ "$version" = "$(cat VERSION)" ] || { echo "the tag is $GITHUB_REF_NAME, and VERSION says $(cat VERSION)" >&2; exit 1; }
+
+          mkdir dist
+          for target in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64 windows/arm64; do
+            os=${target%/*}
+            cpu=${target#*/}
+            name=pethost-$os-$cpu
+            [ "$os" != windows ] || name=$name.exe
+            CGO_ENABLED=0 GOOS=$os GOARCH=$cpu go build -trimpath \
+              -ldflags "-s -w -X main.version=$version" -o "dist/$name" ./cmd/pethost
+          done
+
+          (cd dist && sha256sum pethost-* >checksums.txt)
+          echo "$version" >dist/version
+          cat dist/checksums.txt
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --title "pethost ${GITHUB_REF_NAME#v}" --generate-notes
