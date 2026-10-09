@@ -18,7 +18,7 @@ import (
 // person is sent away to write one, the CLI makes the folder runnable where it can, in this
 // order: the files a row of internal/detect writes for a project of a kind it knows; the
 // files a coding agent of theirs writes, where no stack knows the folder or the one that
-// does has no row for it (deploy_agent.go). Each says what it wrote and from what, and the
+// does has no row for it (deploy_agent.go). Each says what it wrote, in a line, and the
 // folder is then sent again as it is now. What an agent wrote is sent only on the person's
 // word: they have not read it yet.
 //
@@ -91,33 +91,14 @@ func (d *deploy) makeRunnable(ctx context.Context, violations []pethost.SpecViol
 	return d.haveAgentWrite(ctx, finding, refusedTask(violations, finding))
 }
 
-// find says what the folder is, and tells the person: what it was found to be, and why no
-// file is written for it where none is.
+// find says what the folder is, and tells the person why no file is written for it where
+// none is. What a row read is not said: it is the first comment of the file it writes.
 func (d *deploy) find() detect.Finding {
 	finding := detect.Look(os.DirFS(d.dir))
-	if finding.Project != "" {
-		d.sayFound(finding)
-	}
 	if why := finding.Cannot + finding.Leaves; why != "" {
 		d.a.UI.Info("  %s", why)
 	}
 	return finding
-}
-
-// inOneLine is how many facts a finding is said with in one line; more are a line each.
-const inOneLine = 3
-
-// sayFound says what the folder was found to be, and from what.
-func (d *deploy) sayFound(finding detect.Finding) {
-	screen := d.a.UI
-	if len(finding.Evidence) <= inOneLine {
-		screen.Info("  %s detected: %s.", finding.Project, strings.Join(finding.Evidence, ", "))
-		return
-	}
-	screen.Info("  %s detected:", finding.Project)
-	for _, fact := range finding.Evidence {
-		screen.Info("    %s", fact)
-	}
 }
 
 // write writes a finding's files into the folder and says so; false = the Dockerfile was not
@@ -144,7 +125,7 @@ func (d *deploy) write(finding detect.Finding) bool {
 	}
 	d.own = &attempt{finding: finding, files: wrote}
 
-	screen.Done("Wrote %s (commit %s): %s", strings.Join(namesOf(wrote), " and "), itOrThem(len(wrote)), finding.Summary)
+	screen.Done("%s detected, wrote %s.", finding.Project, strings.Join(namesOf(wrote), " and "))
 	for _, note := range finding.Notes {
 		screen.Info("%s%s", screen.Err.Tilde(), note)
 	}

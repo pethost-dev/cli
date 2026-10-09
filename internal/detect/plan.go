@@ -79,7 +79,7 @@ type variable struct {
 	name, value string
 }
 
-// finding is the plan as Look answers it: the files, and what to say of them. A project that
+// finding is the plan as Look answers it: the files, and what the project is. A project that
 // runs a program is left where the folder's .env places its database on the person's computer.
 func (p *plan) finding(f *Folder) *Finding {
 	if name := databaseHere(f); name != "" && p.serves == "" && !p.ownData {
@@ -91,37 +91,11 @@ func (p *plan) finding(f *Folder) *Finding {
 		Project:  p.project,
 		Evidence: p.evidence,
 		Files:    []File{dockerfileOf(p)},
-		Summary:  p.summary(),
 		Notes:    p.notes,
 		manifest: p.manifest,
 		uses:     p.uses,
 		ignore:   p.ignore,
 	}
-}
-
-// summary says what the Dockerfile does, in the words of its steps: "npm install, npm run
-// docs:build, then serves docs/.vitepress/dist".
-func (p *plan) summary() string {
-	var does []string
-	for _, step := range p.steps {
-		if step.run != "" {
-			does = append(does, step.run)
-		}
-	}
-	switch {
-	case p.serves == ".":
-		does = append(does, "serves this folder")
-	case p.serves != "":
-		does = append(does, "then serves "+p.serves)
-	case p.shell != "":
-		does = append(does, "then runs "+p.shell)
-	default:
-		does = append(does, "then runs "+strings.Join(p.start, " "))
-	}
-	if len(does) == 1 {
-		return strings.TrimPrefix(does[0], "then ")
-	}
-	return strings.Join(does, ", ")
 }
 
 // leave is the answer of a stack that knows the folder and has no row for it. Why, as a

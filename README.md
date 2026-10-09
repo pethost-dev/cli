@@ -91,8 +91,8 @@ The first line of every command says which project it acts on, and how it knows.
 ## What if my folder has no Dockerfile?
 
 Run `pethost deploy` all the same. Your machine refuses the folder, and `pethost` then looks
-at it. Where the folder is a project of a kind it knows, it writes the `Dockerfile`, tells
-you what it read that from, and deploys. Here the folder is what `npm create vite` makes:
+at it. Where the folder is a project of a kind it knows, it writes the `Dockerfile`, says so
+in a line, and deploys. Here the folder is what `npm create vite` makes:
 
 ```
 $ pethost deploy
@@ -100,8 +100,7 @@ Name it [recipes]:                   it will live at https://recipes.sam.pethost
 ✓ Packed 19 files, 94 KB
 ✓ Uploaded straight to your machine
 ✗ /compose.yaml: the project directory has no compose.yaml at its root: add one
-  Vite app detected: package.json builds it with "tsc -b && vite build", which writes dist, Node 24 (no .nvmrc names another), npm installs it (package-lock.json).
-✓ Wrote Dockerfile (commit it): npm install, npm run build, then serves dist
+✓ Vite app detected, wrote Dockerfile.
 ✓ Packed 20 files, 95 KB
 ✓ Uploaded straight to your machine
 ✓ Built and started in 6 s

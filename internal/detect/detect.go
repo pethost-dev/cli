@@ -47,8 +47,6 @@ type Finding struct {
 
 	// The files that make the folder run; none where the folder is left.
 	Files []File
-	// What the files do, in a few words, after "Wrote Dockerfile: ".
-	Summary string
 	// What no Dockerfile can give the project, each a sentence to the person.
 	Notes []string
 
