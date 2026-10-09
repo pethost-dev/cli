@@ -2,6 +2,7 @@ package kernel
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 
@@ -27,7 +28,14 @@ func deployCommand(a *app.App) *cobra.Command {
 project's name, which becomes its address; again, it deploys a new version.
 
 The folder needs a Dockerfile or a compose file. Everything in it is sent but what a
-build makes again, and the machine builds and runs it.`,
+build makes again, and the machine builds and runs it.
+
+Where the folder has neither, pethost writes the Dockerfile itself for a project of a
+kind it knows, and says what it read that from. A project it does not know it offers
+to a coding agent on this computer (Claude Code, Codex, pi), once you chose one;
+PETHOST_AGENT names one for a run, and PETHOST_AGENT=none turns that off. A Dockerfile it wrote is yours once its
+first deploy has built and started: it is never written again. One that fails there is
+taken back, and you are told what failed.`,
 		Example: `  pethost deploy
   pethost deploy ./api
   pethost deploy -p recipes        in a script: nothing is asked
@@ -68,6 +76,9 @@ type deploy struct {
 	writeFile bool
 	// The person signed in during this run.
 	signedInNow bool
+	// What this run wrote from its own reading of the folder, which its first deploy proves
+	// (deploy_proof.go); nil = nothing, or what runs the folder is the person's or their agent's.
+	own *attempt
 	// The answer of the command's last call, which --json prints.
 	answer any
 }
@@ -98,8 +109,12 @@ func (d *deploy) run(ctx context.Context, args []string) error {
 		return err
 	}
 
-	// Whether this deploy builds an image the API says only once it ended: the title claims no
-	// more than is known.
+	return d.watch(ctx, started)
+}
+
+// watch shows a started deploy to its end and says how it ended. Whether it builds an image
+// the API says only once it ended: the title claims no more than is known.
+func (d *deploy) watch(ctx context.Context, started *pethost.Operation) error {
 	result, err := operation.Watch(ctx, d.a, d.project, started, "Deploying…")
 	if err != nil {
 		return err
@@ -108,11 +123,21 @@ func (d *deploy) run(ctx context.Context, args []string) error {
 	return d.finish(ctx, result)
 }
 
-// sendAndStart uploads the folder and starts its deploy. A new project's name that the machine
-// cannot take is asked for again: the rule for names is the machine's alone, and it applies it
-// when the project is created. The folder is not sent again: a request the machine refused for
-// its values left the upload where it was.
+// sendAndStart uploads the folder and starts its deploy. A folder the machine finds nothing to
+// run in is first made runnable where that can be done (deploy_runnable.go), and sent again.
 func (d *deploy) sendAndStart(ctx context.Context) (*pethost.Operation, error) {
+	started, err := d.sendAsItIs(ctx)
+	if nothing, _ := errors.AsType[*nothingToRun](err); nothing != nil {
+		return d.sendMadeRunnable(ctx, nothing)
+	}
+	return started, err
+}
+
+// sendAsItIs uploads the folder as it is and starts its deploy. A new project's name that the
+// machine cannot take is asked for again: the rule for names is the machine's alone, and it
+// applies it when the project is created. The folder is not sent again: a request the machine
+// refused for its values left the upload where it was.
+func (d *deploy) sendAsItIs(ctx context.Context) (*pethost.Operation, error) {
 	uploadID, err := d.send(ctx)
 	if err != nil {
 		return nil, err

@@ -27,6 +27,7 @@ Every screen below is the real output of the command above it. The project is a 
 `recipes` that holds a small site, on the account whose domain is `sam.pethost.app`.
 
 - [How do I put a folder online?](#how-do-i-put-a-folder-online)
+- [What if my folder has no Dockerfile?](#what-if-my-folder-has-no-dockerfile)
 - [What is running?](#what-is-running)
 - [Why is my site broken?](#why-is-my-site-broken)
 - [Where are the logs?](#where-are-the-logs)
@@ -43,9 +44,9 @@ Every screen below is the real output of the command above it. The project is a 
 
 Go to your app's folder and run `pethost deploy`.
 
-The folder needs a `Dockerfile`: a short file that says how your app is started. If it has
-none, ask your coding agent, "Write a Dockerfile for this app", and run the command again. A
-folder with a `compose.yaml` works too.
+The folder needs a `Dockerfile`: a short file that says how your app is built and started. A
+folder with a `compose.yaml` works too. If it has neither, run the command anyway: for most
+projects `pethost` [writes the Dockerfile itself](#what-if-my-folder-has-no-dockerfile).
 
 ```
 $ cd recipes
@@ -86,6 +87,65 @@ https://recipes.sam.pethost.app
 ```
 
 The first line of every command says which project it acts on, and how it knows.
+
+## What if my folder has no Dockerfile?
+
+Run `pethost deploy` all the same. Your machine refuses the folder, and `pethost` then looks
+at it. Where the folder is a project of a kind it knows, it writes the `Dockerfile`, tells
+you what it read that from, and deploys. Here the folder is what `npm create vite` makes:
+
+```
+$ pethost deploy
+Name it [recipes]:                   it will live at https://recipes.sam.pethost.app
+✓ Packed 19 files, 94 KB
+✓ Uploaded straight to your machine
+✗ /compose.yaml: the project directory has no compose.yaml at its root: add one
+  Vite app detected: package.json builds it with "tsc -b && vite build", which writes dist, Node 24 (no .nvmrc names another), npm installs it (package-lock.json).
+✓ Wrote Dockerfile (commit it): npm install, npm run build, then serves dist
+✓ Packed 20 files, 95 KB
+✓ Uploaded straight to your machine
+✓ Built and started in 6 s
+  · wrote compose.yaml for the Dockerfile: the service app, reading .env, port 80
+✓ app listens on 80 → https://recipes.sam.pethost.app
+  It answers 200.
+
+https://recipes.sam.pethost.app
+
+Wrote .pethost (commit it). Next:   pethost logs -f   ·   pethost open
+```
+
+- **It knows a short list of project kinds**, and writes each kind's file: sites that a
+  build turns into files (VitePress, Vite, Astro, Docusaurus, Eleventy, Create React App, a
+  folder of plain pages), Node programs (whatever `package.json` starts with its `start`
+  script: Next.js, NestJS, Express; and Nuxt), Python (Django, FastAPI, Flask, Streamlit,
+  Gradio, a program), PHP (Laravel and Symfony as their installers make them, plain PHP pages)
+  and Go. It takes from the folder what such a project declares: the package manager from
+  the lockfile, the version from `.nvmrc` or `.python-version`, the build and the start from
+  `package.json` or a `Procfile`. It asks you nothing.
+- **Where the folder is none of these, it writes nothing and says why**: a framework it does
+  not know, an app kept in a file of another name, two projects in one folder, a project
+  that keeps its own Dockerfile in a subfolder, a database that has to run beside the
+  program (which takes a `compose.yaml`). You write the file, or the coding agent on your
+  computer does: it is given the reason.
+- **Where your project has to change first, it says what**: a site built for a path below
+  its address, a Django project whose settings allow no host, a Laravel project without its
+  key.
+- **The file is proven by its first deploy.** If your machine cannot build it, or the
+  program does not start, `pethost` takes its Dockerfile back out of the folder, shows what
+  failed, and offers your coding agent the folder with that error. A wrong file is never left
+  behind.
+- **Then the file is yours.** It is an ordinary `Dockerfile`, with a comment where a step
+  needs one. Read it, change it, commit it. `pethost` never writes it again.
+- **A line that starts with `~`** is something no Dockerfile can give your project, which
+  you may have to act on: a variable to set, data that a new version would lose.
+
+For a folder it does not know, it offers a coding agent of yours, if this
+computer has Claude Code, Codex or pi: you choose one, once, and the agent reads the folder
+and writes the `Dockerfile`. The command it is run with is shown: Claude Code and pi get no shell, Codex
+runs in its own sandbox, and none gets your Pethost token. What it wrote is deployed only
+when you say yes. `PETHOST_AGENT=codex` names one for a run, and `PETHOST_AGENT=none` turns
+that off. In a script no agent is offered: a project of a known kind still gets its file, and
+anything else ends the command with the machine's refusal.
 
 ## What is running?
 

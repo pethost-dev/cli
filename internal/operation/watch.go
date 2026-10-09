@@ -29,6 +29,9 @@ type Result struct {
 	// The command has printed the whole log itself, as `logs --deploy -f` does: a failure's
 	// report repeats none of it, and does not say where the log is.
 	LogShown bool
+	// What a failure's report showed of why: the machine's reason, then the lines that show
+	// it. None before Report, after a good end, and under --json.
+	Failure []string
 }
 
 // Run shows a started operation to its end and reports how it ended: Watch, then Report. A

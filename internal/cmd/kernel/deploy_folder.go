@@ -29,7 +29,7 @@ type contents struct {
 	leftOut []string
 	// The folder's root has a .env.
 	hasEnv bool
-	// The names in the folder's root, for the hint when the machine finds nothing to run.
+	// The names in the folder's root, for what follows when the machine finds nothing to run.
 	rootNames []string
 }
 
@@ -99,9 +99,20 @@ func (c *contents) add(dir, path string, item fs.DirEntry) error {
 }
 
 // lookAtFolder reads what the folder holds, before anything is asked about the project: a
-// folder that is clearly the wrong one is asked about first, and once. The names to leave out
-// are the API's and come with a transfer, which the upload then uses.
+// folder that is clearly the wrong one is asked about first, and once.
 func (d *deploy) lookAtFolder(ctx context.Context) error {
+	if err := d.readFolder(ctx); err != nil {
+		return err
+	}
+	if why := d.wrongFolder(d.packed); why != "" {
+		return d.confirmFolder(d.packed, why)
+	}
+	return nil
+}
+
+// readFolder reads what the folder holds now. The names to leave out are the API's and come
+// with a transfer, which the upload then uses.
+func (d *deploy) readFolder(ctx context.Context) error {
 	transfer, err := d.newTransfer(ctx)
 	if err != nil {
 		return err
@@ -112,12 +123,6 @@ func (d *deploy) lookAtFolder(ctx context.Context) error {
 	live.Stop()
 	if err != nil {
 		return err
-	}
-
-	if why := d.wrongFolder(found); why != "" {
-		if err := d.confirmFolder(found, why); err != nil {
-			return err
-		}
 	}
 	d.transfer, d.packed = transfer, found
 	return nil

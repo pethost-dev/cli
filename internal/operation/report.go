@@ -75,6 +75,7 @@ func (r *Result) failed(ctx context.Context, a *app.App, project target.Project,
 
 	screen, err := a.UI, a.UI.Err
 	screen.ErrLine(err.Cross() + headline)
+	r.Failure = []string{headline}
 	wholeLog := false
 	if operation.Status == pethost.OperationStatusFailed {
 		var lines []string
@@ -82,6 +83,7 @@ func (r *Result) failed(ctx context.Context, a *app.App, project target.Project,
 		for _, line := range lines {
 			screen.ErrLine("    " + err.Dim(line))
 		}
+		r.Failure = append(r.Failure, lines...)
 	}
 	if after := r.aftermath(); after != "" {
 		screen.ErrLine("  " + after)

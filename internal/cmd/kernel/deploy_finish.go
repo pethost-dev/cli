@@ -23,8 +23,13 @@ func (d *deploy) finish(ctx context.Context, result *operation.Result) error {
 		if d.a.JSON {
 			return d.printAnswer(err)
 		}
+		if d.own != nil && disproves(result.Operation) {
+			return d.takeBack(ctx, result, err)
+		}
 		return err
 	}
+	// The files this run wrote are proven: from here on they are the person's.
+	d.own = nil
 
 	project := result.Project
 	if given, err := d.giveAddress(ctx, result); err != nil {

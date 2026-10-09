@@ -49,7 +49,8 @@ func (d *deploy) start(ctx context.Context, uploadID string) (*pethost.Operation
 
 // refused is the end of a deploy whose files the machine cannot deploy: nil when it found
 // nothing wrong. Each violation is printed where it is and as the machine says it, after what
-// the machine had changed on its way there.
+// the machine had changed on its way there. A folder with nothing to run ends as a
+// *nothingToRun, whose last words are its caller's: the folder may yet be made runnable.
 func (d *deploy) refused(violations []pethost.SpecViolation, adjustments []string) error {
 	if len(violations) == 0 {
 		return nil
@@ -68,24 +69,32 @@ func (d *deploy) refused(violations []pethost.SpecViolation, adjustments []strin
 	for _, violation := range violations {
 		screen.ErrLine(screen.Err.Cross() + say.Violation(violation))
 	}
-	again := screen.Err.Bold(d.a.CommandLine())
-	if d.packed.nothingToRun() {
-		screen.ErrLine(`  Your coding agent writes one in a minute: "Write a Dockerfile for this app".`)
-		screen.ErrLine("  Then run " + again + " again.     How Pethost runs a folder: " + folderDocs)
-	} else {
-		screen.ErrLine("  Nothing was deployed. Change that in the folder, then run " + again + " again.")
+	if runsNothing(d.packed.rootNames) {
+		return &nothingToRun{refusal: e.AlreadyShown(), violations: violations}
 	}
+	screen.ErrLine("  Nothing was deployed. Change that in the folder, then run " + screen.Err.Bold(d.a.CommandLine()) + " again.")
 	return e.AlreadyShown()
 }
+
+// nothingToRun is the machine's refusal of a folder that holds neither a Dockerfile nor a
+// compose file: where most newcomers stand.
+type nothingToRun struct {
+	refusal    *fail.Error
+	violations []pethost.SpecViolation
+}
+
+func (e *nothingToRun) Error() string { return e.refusal.Error() }
+
+func (e *nothingToRun) Unwrap() error { return e.refusal }
 
 // folderDocs is where the rules for a folder are written: the API's reference of CreateProject.
 const folderDocs = "https://pethost.dev/docs/api/#CreateProject"
 
-// nothingToRun says whether the folder's root holds neither a Dockerfile nor a file that reads
-// as a compose file: where most newcomers stand. It only chooses a hint under the machine's own
-// refusal; whether the files can run is the machine's to say.
-func (c *contents) nothingToRun() bool {
-	return !slices.ContainsFunc(c.rootNames, func(name string) bool {
+// runsNothing says whether a folder's root holds neither a Dockerfile nor a file that reads as
+// a compose file. It only chooses what follows the machine's own refusal; whether the files can
+// run is the machine's to say.
+func runsNothing(rootNames []string) bool {
+	return !slices.ContainsFunc(rootNames, func(name string) bool {
 		lower := strings.ToLower(name)
 		isYAML := strings.HasSuffix(lower, ".yaml") || strings.HasSuffix(lower, ".yml")
 		return lower == "dockerfile" || (isYAML && strings.Contains(lower, "compose"))
