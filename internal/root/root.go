@@ -84,6 +84,15 @@ func answersAShell(ran *cobra.Command) bool {
 	return false
 }
 
+// Tree is the command tree outside a run: what the reference (reference_gen.go) reads every
+// command's help from.
+func Tree() *cobra.Command {
+	root := tree(app.New(ui.New(os.Stdin, os.Stdout, os.Stderr), buildOf(""), nil))
+	// The library adds the help command to the tree only when the program runs.
+	root.InitDefaultHelpCmd()
+	return root
+}
+
 // tree is the root command with every command under it.
 func tree(a *app.App) *cobra.Command {
 	// A command's own hook must not replace the root's, which reads the global flags.

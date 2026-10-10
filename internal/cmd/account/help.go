@@ -219,8 +219,17 @@ func firstExample(command *cobra.Command) string {
 	return strings.TrimSpace(first)
 }
 
-func writeSections(out *strings.Builder, root *cobra.Command) {
+// A Section is a part of the help: the commands that are for one thing.
+type Section struct {
+	Title    string
+	Commands []*cobra.Command
+}
+
+// Sections are the root's commands by what each is for, in the help's order: what the help of
+// the program itself lists, and what the reference (internal/root/reference_gen.go) documents.
+func Sections(root *cobra.Command) []Section {
 	listed := map[string]bool{}
+	var parts []Section
 	for i, section := range sections {
 		names := section.commands
 		for _, name := range names {
@@ -230,11 +239,22 @@ func writeSections(out *strings.Builder, root *cobra.Command) {
 			names = append(slices.Clone(names), unlisted(root, listed)...)
 		}
 
-		fmt.Fprintf(out, "\n%s\n", section.title)
+		part := Section{Title: section.title}
 		for _, name := range names {
 			if command := subcommand(root, name); command != nil {
-				fmt.Fprintf(out, "  %-*s   %s\n", root.NamePadding(), command.Name(), command.Short)
+				part.Commands = append(part.Commands, command)
 			}
+		}
+		parts = append(parts, part)
+	}
+	return parts
+}
+
+func writeSections(out *strings.Builder, root *cobra.Command) {
+	for _, section := range Sections(root) {
+		fmt.Fprintf(out, "\n%s\n", section.Title)
+		for _, command := range section.Commands {
+			fmt.Fprintf(out, "  %-*s   %s\n", root.NamePadding(), command.Name(), command.Short)
 		}
 	}
 }
