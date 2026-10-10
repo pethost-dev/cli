@@ -40,8 +40,8 @@ func printProject(a *app.App, named target.Project, machine *pethost.Machine, pr
 }
 
 // sayHowToGiveAddress names, under a project that has no address and whose services listen, the
-// command that gives it one: a first deploy that was left with Ctrl-C, or whose files had more
-// than one port, ends without an address and without having said so.
+// command that gives it one: the machine gives none to a project that publishes no web port and
+// listens on several, and a person may have taken it away.
 func sayHowToGiveAddress(a *app.App, named target.Project, machine *pethost.Machine, project *pethost.Project) {
 	domain := ""
 	if machine != nil {

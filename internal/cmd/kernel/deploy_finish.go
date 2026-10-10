@@ -12,9 +12,9 @@ import (
 	"github.com/pethost-dev/cli/internal/ui"
 )
 
-// How a deploy ends on the screen: what the machine did, in its words; the address, given by
-// the deploy itself to a project that never had one; what the address answers; the URL alone
-// on stdout; and the next thing to type.
+// How a deploy ends on the screen: what the machine did, in its words; the address the machine
+// gave a project that never had one; what the address answers; the URL alone on stdout; and
+// the next thing to type.
 
 func (d *deploy) finish(ctx context.Context, result *operation.Result) error {
 	words := operation.Words{Done: d.doneWords(result), Failed: "Deploy failed"}
@@ -31,17 +31,12 @@ func (d *deploy) finish(ctx context.Context, result *operation.Result) error {
 	// The files this run wrote are proven: from here on they are the person's.
 	d.own = nil
 
-	project := result.Project
-	if given, err := d.giveAddress(ctx, result); err != nil {
-		return err
-	} else if given != nil {
-		project = given
-	}
 	if d.a.JSON {
 		return d.a.PrintJSON(d.answer)
 	}
-	d.showAddress(ctx, project)
-	d.lastLines(project)
+	d.sayAddress(result)
+	d.showAddress(ctx, result.Project)
+	d.lastLines(result.Project)
 	return nil
 }
 

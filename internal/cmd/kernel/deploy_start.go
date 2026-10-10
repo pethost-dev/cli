@@ -26,7 +26,7 @@ func atOnce() *uint32 {
 func (d *deploy) start(ctx context.Context, uploadID string) (*pethost.Operation, error) {
 	if d.create {
 		answer, err := d.client.CreateProject(ctx, &pethost.CreateProjectRequest{
-			ProjectID: d.project.ID, UploadID: uploadID, WaitSeconds: atOnce(),
+			ProjectID: d.project.ID, UploadID: uploadID, WaitSeconds: atOnce(), XPethost: d.noRoutes(),
 		})
 		if err != nil {
 			return nil, err
@@ -45,6 +45,15 @@ func (d *deploy) start(ctx context.Context, uploadID string) (*pethost.Operation
 	}
 	d.answer = answer
 	return answer.Operation, d.refused(answer.Violations, answer.Adjustments)
+}
+
+// noRoutes is what --private sends with a new project: no route, said outright, so the machine
+// gives none either; nil without the flag.
+func (d *deploy) noRoutes() *pethost.ProjectExtension {
+	if !d.private {
+		return nil
+	}
+	return &pethost.ProjectExtension{RemoveRoutes: true}
 }
 
 // refused is the end of a deploy whose files the machine cannot deploy: nil when it found

@@ -3,6 +3,7 @@ package change
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	pethost "github.com/pethost-dev/sdk/go"
 	"github.com/spf13/cobra"
@@ -75,11 +76,32 @@ func removeDomain(ctx context.Context, a *app.App, project target.Project, noQue
 	if done.Project != nil && len(done.Project.Routes) == 0 {
 		a.UI.Info("  It has no address now.")
 	}
+	sayOpened(a, done.Project, removed)
 	if len(removed) == 1 && everyPath(removed[0]) && !removed[0].StripPath {
 		back := fmt.Sprintf("pethost domain add %s %s:%d%s", word(removed[0].Host), word(removed[0].Service), removed[0].Port, project.Flag())
 		a.UI.Info("  To bring it back:  %s", a.UI.Err.Bold(back))
 	}
 	return done.said(a)
+}
+
+// sayOpened says which machine port answers in place of an address that went: the compose file
+// publishes the port the address led to, so with no route to serve it the machine opens it as
+// written, to anyone, without HTTPS or the project's password.
+func sayOpened(a *app.App, project *pethost.Project, removed []pethost.Route) {
+	if project == nil {
+		return
+	}
+	for _, service := range project.Services {
+		for _, port := range service.PublishedPorts {
+			leftOpen := slices.ContainsFunc(removed, func(r pethost.Route) bool {
+				return r.Service == service.Service && r.Port == port.ContainerPort
+			})
+			if leftOpen && port.Protocol == "tcp" {
+				a.UI.Info("  The compose file publishes %s's port %d, so it is open on the machine now, at port %d: without HTTPS, and without the project's password.",
+					ui.Clean(service.Service), port.ContainerPort, port.MachinePort)
+			}
+		}
+	}
 }
 
 // withoutHost splits the project's routes into those that stay and the host's, which go.
