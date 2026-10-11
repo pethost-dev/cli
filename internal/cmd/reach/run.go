@@ -175,21 +175,8 @@ func serviceToRunIn(ctx context.Context, a *app.App, client *pethost.Client, pro
 		return "", err
 	}
 	return target.Service(a, "", target.ServiceNames(answer.Project), func(service string) string {
-		return commandLineWithService(a, service)
+		return a.CommandLine(service)
 	})
-}
-
-// commandLineWithService is this run's command line with a service named before the "--".
-func commandLineWithService(a *app.App, service string) string {
-	words := []string{"pethost"}
-	dash := slices.Index(a.Args, "--")
-	for i, word := range a.Args {
-		if i == dash {
-			words = append(words, app.ShellWord(service))
-		}
-		words = append(words, app.ShellWord(word))
-	}
-	return strings.Join(words, " ")
 }
 
 // pipedIn is what -i gives the command as its stdin: all that is piped in.

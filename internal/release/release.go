@@ -40,8 +40,8 @@ func GoInstall(version string) string {
 	return "go install github.com/pethost-dev/cli/cmd/pethost@v" + version
 }
 
-// Binary is the name of a release's program for this computer.
-func Binary() string {
+// binary is the name of a release's program for this computer.
+func binary() string {
 	name := "pethost-" + runtime.GOOS + "-" + runtime.GOARCH
 	if runtime.GOOS == "windows" {
 		name += ".exe"

@@ -20,9 +20,10 @@ func NoQueueFlag(cmd *cobra.Command) *bool {
 	return cmd.Flags().Bool("no-queue", false, "fail when the project is busy instead of waiting for its turn")
 }
 
-// busyPause is how long to wait before calling again when a short action holds the project, or
-// when the operation that holds it is still starting.
-const busyPause = 2 * time.Second
+// callAgainPause is how long to wait before calling again when a short action holds the
+// project, or when the operation that holds it is still starting, and before a log stream that
+// broke is opened again.
+const callAgainPause = 2 * time.Second
 
 // Queue makes a call that changes a project, and when the project is busy with something else
 // says so, waits for that to end and calls again; with noQueue it fails instead, with the exit
@@ -64,11 +65,11 @@ func waitFor(ctx context.Context, a *app.App, project target.Project, busy *peth
 	if err != nil {
 		return err
 	}
-	for {
-		if busy.OperationID == "" {
-			return pause(ctx)
-		}
+	if busy.OperationID == "" {
+		return pause(ctx)
+	}
 
+	for {
 		// The call itself waits, up to the API's 45 seconds, for the operation to end.
 		response, err := client.GetOperation(ctx, &pethost.GetOperationRequest{ProjectID: project.ID, OperationID: busy.OperationID})
 		switch {
@@ -88,7 +89,7 @@ func pause(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
-	case <-time.After(busyPause):
+	case <-time.After(callAgainPause):
 		return nil
 	}
 }

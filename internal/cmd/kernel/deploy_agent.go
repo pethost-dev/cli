@@ -72,20 +72,12 @@ func (d *deploy) haveAgentWrite(ctx context.Context, finding detect.Finding, tas
 // installed, or they said not now.
 func (d *deploy) chooseAgent(finding detect.Finding) (*agent.Agent, error) {
 	screen := d.a.UI
-	chosen, ok, byVariable, off := agent.Chosen()
-	if off || !screen.CanAsk() {
+	if agent.Off() || !screen.CanAsk() {
 		return nil, nil
 	}
+	chosen, ok, byVariable := agent.Chosen()
 	if ok {
-		whose := "as you chose"
-		kept := agent.Variable + "=none turns that off; your choice is kept in " + agent.ChoiceFile()
-		if byVariable {
-			whose, kept = "as "+agent.Variable+" says", ""
-		}
-		screen.Info("  %s writes what runs it, %s:   %s", chosen.Name, whose, screen.Err.Dim(chosen.CommandLine()))
-		if kept != "" {
-			screen.Info("  %s", screen.Err.Dim(kept))
-		}
+		d.sayChosen(chosen, byVariable)
 		return &chosen, nil
 	}
 
@@ -113,6 +105,20 @@ func (d *deploy) chooseAgent(finding detect.Finding) (*agent.Agent, error) {
 		screen.Info("  The choice could not be kept (%s): you will be asked again.", err)
 	}
 	return &chosen, nil
+}
+
+// sayChosen says which agent writes without a question, by whose word, and for the person's
+// own choice how it is turned off.
+func (d *deploy) sayChosen(chosen agent.Agent, byVariable bool) {
+	screen := d.a.UI
+	command := screen.Err.Dim(chosen.CommandLine())
+	if byVariable {
+		screen.Info("  %s writes what runs it, as %s says:   %s", chosen.Name, agent.Variable, command)
+		return
+	}
+
+	screen.Info("  %s writes what runs it, as you chose:   %s", chosen.Name, command)
+	screen.Info("  %s", screen.Err.Dim(agent.Variable+"=none turns that off; your choice is kept in "+agent.ChoiceFile()))
 }
 
 // refusedTask is what the agent is asked for a folder the machine refused: the refusal, and

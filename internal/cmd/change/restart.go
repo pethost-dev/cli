@@ -68,7 +68,7 @@ func sayStillStopped(a *app.App, project target.Project, after *pethost.Project)
 		}
 	}
 	if len(stopped) > 0 {
-		a.UI.Info("  A stopped service stays stopped. Start it:  %s", a.UI.Err.Bold(again("pethost start", stopped, project)))
+		a.UI.Info("  A stopped service stays stopped. Start it:  %s", a.UI.Err.Bold(startAgain(stopped, project)))
 	}
 }
 

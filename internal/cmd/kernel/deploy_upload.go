@@ -65,9 +65,10 @@ func (d *deploy) upload(ctx context.Context, ticket *pethost.CreateTransferRespo
 	defer live.Stop()
 
 	var sent atomic.Uint64
-	stop := make(chan struct{})
-	defer close(stop)
-	go showProgress(live, &sent, found.bytes, stop)
+	stop := live.Follow(func() string {
+		return fmt.Sprintf("Packing and uploading… %s of %s", ui.Size(sent.Load()), ui.Size(found.bytes))
+	})
+	defer stop()
 
 	started := time.Now()
 	body, packing := io.Pipe()
@@ -81,8 +82,9 @@ func (d *deploy) upload(ctx context.Context, ticket *pethost.CreateTransferRespo
 	response, err := transfer.Do(ctx, ticket, body, -1)
 	// The request is over, however it ended: a packing that still writes ends with it.
 	body.Close()
-	if unread := <-packed; unread != nil && !errors.Is(unread, io.ErrClosedPipe) {
-		return notPacked(response, unread)
+	packErr := <-packed
+	if packErr != nil && !errors.Is(packErr, io.ErrClosedPipe) {
+		return notPacked(response, packErr)
 	}
 	if err != nil {
 		return err
@@ -100,18 +102,4 @@ func notPacked(response *http.Response, cause error) error {
 		response.Body.Close()
 	}
 	return fail.Failed("This folder could not be packed: %s. Nothing was deployed.", cause)
-}
-
-// showProgress redraws how much of the folder has gone, until stop.
-func showProgress(live *ui.Live, sent *atomic.Uint64, total uint64, stop <-chan struct{}) {
-	ticker := time.NewTicker(200 * time.Millisecond)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-stop:
-			return
-		case <-ticker.C:
-			live.Title(fmt.Sprintf("Packing and uploading… %s of %s", ui.Size(sent.Load()), ui.Size(total)))
-		}
-	}
 }

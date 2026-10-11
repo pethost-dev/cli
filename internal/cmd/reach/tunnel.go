@@ -57,7 +57,8 @@ service's only one is taken. Ctrl-C closes the tunnel.`,
 		if err != nil {
 			return err
 		}
-		if t.port, err = t.portOf(f, port); err != nil {
+		t.port, err = t.portOf(f, port)
+		if err != nil {
 			return err
 		}
 
@@ -186,7 +187,8 @@ func (t *tunnel) listen(local int) (listeners []net.Listener, opened int, err er
 	}
 
 	for port := int(t.port); port < int(t.port)+portsTried && port <= 65535; port++ {
-		if listeners, opened, err = remote.Listen(port); err == nil {
+		listeners, opened, err = remote.Listen(port)
+		if err == nil {
 			return listeners, opened, nil
 		}
 	}

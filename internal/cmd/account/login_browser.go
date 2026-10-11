@@ -98,7 +98,8 @@ func showTheWay(a *app.App, panel, address string, pressEnter bool) error {
 		}
 	}
 
-	switch err := browser.Open(address); {
+	err := browser.Open(address)
+	switch {
 	case err != nil && !screen.Err.Terminal:
 		// No browser shows the page and nobody reads the address: nobody would press Connect.
 		return (&fail.Error{Exit: fail.ExitPerson, Code: "NOT_SIGNED_IN",

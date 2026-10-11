@@ -3,6 +3,7 @@ package ui
 import (
 	"errors"
 	"io"
+	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -17,10 +18,10 @@ import (
 // interruption cut short.
 var ErrInterrupted = errors.New("interrupted")
 
-// typed is the channel of the bytes typed, started on first use; it is closed when stdin ends.
-// It holds one read's bytes, so that a key which sends several, as an arrow does, is there whole
-// for whoever takes its first byte.
-func (s *Screen) typed() <-chan byte {
+// typedBytes is the channel of the bytes typed, started on first use; it is closed when stdin
+// ends. It holds one read's bytes, so that a key which sends several, as an arrow does, is there
+// whole for whoever takes its first byte.
+func (s *Screen) typedBytes() <-chan byte {
 	s.keysOnce.Do(func() {
 		s.keys = make(chan byte, readAtOnce)
 		go s.readKeys()
@@ -35,11 +36,11 @@ func (s *Screen) readKeys() {
 	defer close(s.keys)
 	buffer := make([]byte, readAtOnce)
 	for {
-		n, err := s.in.Read(buffer)
+		n, err := s.In.Read(buffer)
 		for _, b := range buffer[:n] {
 			s.keys <- b
 		}
-		if typedCtrlZ(s.in, n, err) {
+		if typedCtrlZ(s.In, n, err) {
 			s.keys <- 0x1a
 			continue
 		}
@@ -52,7 +53,7 @@ func (s *Screen) readKeys() {
 // nextByte waits for a byte, the run's interruption or stop.
 func (s *Screen) nextByte(stop <-chan struct{}) (byte, error) {
 	select {
-	case b, open := <-s.typed():
+	case b, open := <-s.typedBytes():
 		if !open {
 			return 0, io.EOF
 		}
@@ -77,17 +78,10 @@ func (s *Screen) line(stop <-chan struct{}) (string, error) {
 		case err != nil:
 			return "", err
 		case b == '\n':
-			return string(trimCR(line)), nil
+			return strings.TrimSuffix(string(line), "\r"), nil
 		}
 		line = append(line, b)
 	}
-}
-
-func trimCR(line []byte) []byte {
-	if n := len(line); n > 0 && line[n-1] == '\r' {
-		return line[:n-1]
-	}
-	return line
 }
 
 // A key is one press on a terminal that the CLI reads itself (raw mode): a character, or one of
@@ -110,10 +104,10 @@ const (
 	keyOther
 )
 
-// raw puts the terminal into raw mode, where each press arrives as it is made and nothing is
+// rawInput puts the terminal into raw mode, where each press arrives as it is made and nothing is
 // echoed; the function it returns puts it back.
-func (s *Screen) raw() (restore func(), err error) {
-	fd := int(s.in.Fd())
+func (s *Screen) rawInput() (restore func(), err error) {
+	fd := int(s.In.Fd())
 	state, err := term.MakeRaw(fd)
 	if err != nil {
 		return nil, err
@@ -184,7 +178,7 @@ func arrow(final byte) key {
 // soon is the next byte if it comes within escapeWait.
 func (s *Screen) soon() (byte, bool) {
 	select {
-	case b, open := <-s.typed():
+	case b, open := <-s.typedBytes():
 		return b, open
 	case <-time.After(escapeWait):
 		return 0, false

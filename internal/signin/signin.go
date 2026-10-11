@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/pethost-dev/cli/internal/kept"
 )
 
 // DefaultURL is Pethost's own panel.
@@ -79,19 +81,15 @@ func samePanel(a, b string) bool {
 	return strings.TrimRight(a, "/") == strings.TrimRight(b, "/")
 }
 
-// File is where the sign-in is stored: pethost/signin.json under the user's configuration
+// file is where the sign-in is stored: pethost/signin.json under the user's configuration
 // directory.
-func File() (string, error) {
-	dir, err := os.UserConfigDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(dir, "pethost", "signin.json"), nil
+func file() (string, error) {
+	return kept.File("signin.json")
 }
 
 // Load reads the stored sign-in; nil = there is none.
 func Load() (*Stored, error) {
-	path, err := File()
+	path, err := file()
 	if err != nil {
 		return nil, nil // No home to keep one in: nothing is stored.
 	}
@@ -113,7 +111,7 @@ func Load() (*Stored, error) {
 // Store keeps a sign-in for the next runs, in a file only its owner reads, written whole or not
 // at all.
 func Store(stored Stored) error {
-	path, err := File()
+	path, err := file()
 	if err != nil {
 		return err
 	}
@@ -132,15 +130,15 @@ func Store(stored Stored) error {
 	return os.Rename(temporary, path)
 }
 
-// Remove forgets the stored sign-in; false = there was none.
-func Remove() (bool, error) {
-	path, err := File()
+// Remove forgets the stored sign-in; nil when there was none.
+func Remove() error {
+	path, err := file()
 	if err != nil {
-		return false, err
+		return err
 	}
 	err = os.Remove(path)
 	if errors.Is(err, fs.ErrNotExist) {
-		return false, nil
+		return nil
 	}
-	return err == nil, err
+	return err
 }

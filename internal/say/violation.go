@@ -15,3 +15,14 @@ func Violation(violation pethost.SpecViolation) string {
 	}
 	return ui.Clean(violation.Location) + ": " + message
 }
+
+// Refusal prints why the machine cannot deploy a project's files: each violation where it is and
+// as the machine says it, after what the machine had changed on its way there.
+func Refusal(screen *ui.Screen, adjustments []string, violations []pethost.SpecViolation) {
+	for _, adjustment := range adjustments {
+		screen.Note("%s", ui.Clean(adjustment))
+	}
+	for _, violation := range violations {
+		screen.ErrLine(screen.Err.Cross() + Violation(violation))
+	}
+}

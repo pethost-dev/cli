@@ -110,5 +110,5 @@ func nobodyReadsLine(project *pethost.Project) string {
 	if !nobodyReads(project) {
 		return ""
 	}
-	return "  No service reads " + envPath + " yet: add  env_file: .env  to the service in compose.yaml."
+	return "No service reads " + envPath + " yet: add  env_file: .env  to the service in compose.yaml."
 }

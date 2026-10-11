@@ -139,7 +139,8 @@ func writeNew(path, content string) error {
 		return err
 	}
 	_, err = file.WriteString(content)
-	if closeErr := file.Close(); err == nil {
+	closeErr := file.Close()
+	if err == nil {
 		err = closeErr
 	}
 	if err != nil {

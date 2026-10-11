@@ -135,8 +135,8 @@ func (d *deployLog) sayEnd(ended *pethost.Operation) {
 	if ended == nil {
 		return
 	}
-	screen, err := d.a.UI, d.a.UI.Err
-	which := deployWords(ended) + " of " + err.When(ended.StartTime)
+	screen := d.a.UI
+	which := deployWords(ended) + " of " + screen.Err.When(ended.StartTime)
 
 	switch status := ended.Status; {
 	case status == pethost.OperationStatusSucceeded:
@@ -148,7 +148,7 @@ func (d *deployLog) sayEnd(ended *pethost.Operation) {
 	case status == pethost.OperationStatusCancelled:
 		screen.Info("%s was cancelled.", which)
 	case status == pethost.OperationStatusInProgress:
-		screen.Info("%s still runs. Follow it:  %s", which, err.Bold("pethost logs --deploy -f"+d.project.Flag()))
+		screen.Info("%s still runs. Follow it:  %s", which, screen.Err.Bold("pethost logs --deploy -f"+d.project.Flag()))
 	}
 }
 

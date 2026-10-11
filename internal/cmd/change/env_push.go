@@ -1,6 +1,7 @@
 package change
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"io/fs"
@@ -76,18 +77,18 @@ func (p *envPush) run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if p.local, err = os.ReadFile(p.path); err != nil {
+	p.local, err = os.ReadFile(p.path)
+	if err != nil {
 		return p.unreadable(err)
 	}
 
 	var done *outcome
-	same := false
 	err = againIfChanged(func() error {
 		env, err := readEnv(ctx, client, p.project.ID)
 		if err != nil {
 			return err
 		}
-		if same = env.exists && env.text == string(p.local); same {
+		if env.exists && env.text == string(p.local) {
 			return nil
 		}
 		if err := p.confirm(env); err != nil {
@@ -104,14 +105,14 @@ func (p *envPush) run(ctx context.Context) error {
 		sayEnvStays(p.a, done)
 		return err
 	}
-	if same {
+	if done == nil {
 		p.a.UI.Info("The %s of %s is %s already: nothing changed.", envPath, ui.Clean(p.project.ID), p.name())
 		return nil
 	}
 
 	p.a.UI.Done("%s is a copy of %s now. Deployed in %s.", envPath, p.name(), done.took())
 	if line := nobodyReadsLine(done.Project); line != "" && len(variableNames(string(p.local))) > 0 {
-		p.a.UI.Info("%s", line)
+		p.a.UI.Info("  %s", line)
 	}
 	return done.said(p.a)
 }
@@ -142,12 +143,8 @@ func (p *envPush) confirm(env *projectEnv) error {
 		return nil
 	}
 
-	yes, err := p.a.UI.Confirm(p.question(env), p.a.CommandLine("--yes"))
-	if err != nil {
+	if err := askFirst(p.a, p.question(env), "Nothing changed."); err != nil {
 		return err
-	}
-	if !yes {
-		return fail.Declined("Nothing changed.")
 	}
 	p.agreed = &env.text
 	return nil
@@ -158,7 +155,7 @@ func (p *envPush) question(env *projectEnv) string {
 	id, local := ui.Clean(p.project.ID), string(p.local)
 	names := variableNames(local)
 	if !env.exists {
-		return id + " has no " + envPath + " yet. Send " + p.name() + ", which sets " + orNothing(listed(names)) + "?"
+		return id + " has no " + envPath + " yet. Send " + p.name() + ", which sets " + cmp.Or(listed(names), "nothing") + "?"
 	}
 
 	var gone, changed, added []string
@@ -191,13 +188,6 @@ func (p *envPush) question(env *projectEnv) string {
 		says += "\n" + p.name() + " adds " + listed(added) + "."
 	}
 	return says + "\nReplace it with " + p.name() + "?"
-}
-
-func orNothing(names string) string {
-	if names == "" {
-		return "nothing"
-	}
-	return names
 }
 
 func itOrThey(names []string) string {

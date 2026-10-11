@@ -41,7 +41,7 @@ func logout(ctx context.Context, a *app.App) error {
 	}
 
 	revoked := revoke(ctx, stored)
-	if _, err := signin.Remove(); err != nil {
+	if err := signin.Remove(); err != nil {
 		return err
 	}
 

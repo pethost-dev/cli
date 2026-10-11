@@ -19,7 +19,7 @@ import (
 // A Screen is the three streams of one run of the CLI.
 type Screen struct {
 	// What the person types or pipes in.
-	In io.Reader
+	In *os.File
 	// The answer alone: the URL, the lines, the names.
 	Out *Stream
 	// Everything else: progress, questions, errors.
@@ -32,7 +32,6 @@ type Screen struct {
 	// Closed when the run is interrupted: a question then ends with ErrInterrupted.
 	Interrupt <-chan struct{}
 
-	in       *os.File
 	keys     chan byte
 	keysOnce sync.Once
 
@@ -53,7 +52,7 @@ type Stream struct {
 
 // New is the screen of a process: its three files, each asked whether it is a terminal.
 func New(in, out, err *os.File) *Screen {
-	return &Screen{In: in, Out: newStream(out), Err: newStream(err), in: in}
+	return &Screen{In: in, Out: newStream(out), Err: newStream(err)}
 }
 
 func newStream(file *os.File) *Stream {
@@ -65,7 +64,7 @@ func newStream(file *os.File) *Stream {
 
 // CanAsk says whether a person can be asked: they type into a terminal and read stderr on one.
 func (s *Screen) CanAsk() bool {
-	return s.in != nil && term.IsTerminal(int(s.in.Fd())) && s.Err.Terminal
+	return term.IsTerminal(int(s.In.Fd())) && s.Err.Terminal
 }
 
 func (s *Stream) Write(p []byte) (int, error) {
@@ -114,13 +113,14 @@ func (s *Screen) status(line string) {
 	if s.Quiet {
 		return
 	}
-	s.errLine(line)
+	s.ErrLine(line)
 }
 
-// errLine writes one line to stderr, above what is redrawn in place. The CLI's own lines only
-// colour, so whatever else a terminal would obey is taken out here, once for every line: a
-// word of the command line said back in an error, or a name its writer forgot to clean.
-func (s *Screen) errLine(line string) {
+// ErrLine writes one line to stderr whatever -q says, above what is redrawn in place: an
+// error's. The CLI's own lines only colour, so whatever else a terminal would obey is taken out
+// here, once for every line: a word of the command line said back in an error, or a name its
+// writer forgot to clean.
+func (s *Screen) ErrLine(line string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -131,9 +131,4 @@ func (s *Screen) errLine(line string) {
 	if s.live != nil {
 		s.live.draw()
 	}
-}
-
-// ErrLine writes one line to stderr whatever -q says: an error's.
-func (s *Screen) ErrLine(line string) {
-	s.errLine(line)
 }

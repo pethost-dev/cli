@@ -91,21 +91,9 @@ func (c *copying) follow(name string, total int64) (stop func()) {
 	}
 
 	live := c.a.UI.Live(title())
-	done := make(chan struct{})
-	go func() {
-		ticker := time.NewTicker(200 * time.Millisecond)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-done:
-				return
-			case <-ticker.C:
-				live.Title(title())
-			}
-		}
-	}()
+	stopTitle := live.Follow(title)
 	return func() {
-		close(done)
+		stopTitle()
 		live.Stop()
 	}
 }

@@ -121,7 +121,7 @@ func serviceState(out *ui.Stream, service pethost.Service) string {
 	if say.Runs(service.State) {
 		return out.Green(word)
 	}
-	return stateColor(out, word, say.State(service.State))
+	return stateColor(out, word, service.State)
 }
 
 // serviceSince is when the service's run started, or ended once it did.

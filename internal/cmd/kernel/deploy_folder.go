@@ -104,8 +104,8 @@ func (d *deploy) lookAtFolder(ctx context.Context) error {
 	if err := d.readFolder(ctx); err != nil {
 		return err
 	}
-	if why := d.wrongFolder(d.packed); why != "" {
-		return d.confirmFolder(d.packed, why)
+	if why := d.wrongFolder(); why != "" {
+		return d.confirmFolder(why)
 	}
 	return nil
 }
@@ -134,11 +134,11 @@ const plentyBytes = 200 << 20
 
 // wrongFolder says why this folder may not be the one the person means; empty when nothing
 // says so.
-func (d *deploy) wrongFolder(found *contents) string {
+func (d *deploy) wrongFolder() string {
 	if home, err := os.UserHomeDir(); err == nil && filepath.Clean(home) == d.dir {
 		return "That is your home folder."
 	}
-	if found.bytes > plentyBytes {
+	if d.packed.bytes > plentyBytes {
 		return "That is more than a project usually is."
 	}
 	return ""
@@ -146,8 +146,8 @@ func (d *deploy) wrongFolder(found *contents) string {
 
 // confirmFolder shows a folder that is clearly the wrong one, with its path, file count and
 // size, and asks before sending it.
-func (d *deploy) confirmFolder(found *contents, why string) error {
-	d.a.UI.Info("%s: %s, %s. %s", d.dir, ui.Plural(uint64(found.files), "file"), ui.Size(found.bytes), why)
+func (d *deploy) confirmFolder(why string) error {
+	d.a.UI.Info("%s: %s, %s. %s", d.dir, ui.Plural(uint64(d.packed.files), "file"), ui.Size(d.packed.bytes), why)
 	yes, err := d.a.UI.Confirm("Send all of it?", d.a.CommandLine("--yes"))
 	if err != nil {
 		return err

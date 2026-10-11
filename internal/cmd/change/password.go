@@ -120,12 +120,8 @@ func removePassword(ctx context.Context, a *app.App, project target.Project, noQ
 		return nil
 	}
 
-	yes, err := a.UI.Confirm("Without its password "+id+" is open to everyone. Take it away?", a.CommandLine("--yes"))
-	if err != nil {
+	if err := askFirst(a, "Without its password "+id+" is open to everyone. Take it away?", "Nothing changed: the password stays."); err != nil {
 		return err
-	}
-	if !yes {
-		return fail.Declined("Nothing changed: the password stays.")
 	}
 
 	done, err := deploy(ctx, a, project, noQueue, &pethost.DeployProjectRequest{

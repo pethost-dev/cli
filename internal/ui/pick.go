@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"cmp"
 	"fmt"
 	"strings"
 )
@@ -15,7 +16,7 @@ type Choice struct {
 // number), and returns its index. It needs a terminal (CanAsk): the caller decides what happens
 // without one. Esc or Ctrl-C leaves it with ErrInterrupted.
 func (s *Screen) Pick(question string, choices []Choice) (int, error) {
-	restore, err := s.raw()
+	restore, err := s.rawInput()
 	if err != nil {
 		return 0, err
 	}
@@ -27,7 +28,7 @@ func (s *Screen) Pick(question string, choices []Choice) (int, error) {
 		k, err := s.press()
 		if err != nil || k.kind == keyLeave {
 			s.write("\r\n")
-			return 0, pickEnd(err)
+			return 0, cmp.Or(err, ErrInterrupted)
 		}
 
 		switch {
@@ -45,13 +46,6 @@ func (s *Screen) Pick(question string, choices []Choice) (int, error) {
 		}
 		s.write(rewind(len(choices)+1) + s.pickerLines(question, choices, at))
 	}
-}
-
-func pickEnd(err error) error {
-	if err != nil {
-		return err
-	}
-	return ErrInterrupted
 }
 
 // rewind moves the cursor up over lines drawn before and clears them.

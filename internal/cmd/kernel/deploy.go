@@ -108,6 +108,7 @@ func (d *deploy) run(ctx context.Context, args []string) error {
 	if err := d.rememberFolder(); err != nil {
 		return err
 	}
+	d.sourceFromHere()
 
 	return d.watch(ctx, started)
 }
@@ -191,7 +192,8 @@ func (d *deploy) chooseFolder(args []string) error {
 		return fail.Failed("%s is not a folder.", dir)
 	}
 	// A link to a folder is deployed as the folder it leads to.
-	if dir, err = filepath.EvalSymlinks(dir); err != nil {
+	dir, err = filepath.EvalSymlinks(dir)
+	if err != nil {
 		return err
 	}
 
@@ -210,30 +212,40 @@ func (d *deploy) chooseFolder(args []string) error {
 
 // namedOutside says whether -p or PETHOST_PROJECT names the project, whatever the folder says.
 func (d *deploy) namedOutside() bool {
-	return d.a.Project != "" || os.Getenv("PETHOST_PROJECT") != ""
+	_, named := target.NamedOutright(d.a)
+	return named
 }
 
 // rememberFolder writes the folder's .pethost once the machine has taken the deploy: from then
-// on the project exists, however its first deploy ends. The commands the deploy names from
-// here on then need no -p where the person stands in the folder.
+// on the project exists, however its first deploy ends.
 func (d *deploy) rememberFolder() error {
-	if d.writeFile {
-		domain := ""
-		if d.machine.Machine != nil {
-			domain = d.machine.Machine.AppsDomain
-		}
-		if err := target.WriteFile(d.dir, d.project.ID, domain); err != nil {
-			return fail.Failed("The deploy runs, but %s could not be written here: %s", target.FileName, err).
-				WithLead("Follow it:", "pethost logs --deploy -f"+d.project.Flag())
-		}
+	if !d.writeFile {
+		return nil
 	}
 
-	switch here, err := target.FindFile("."); {
-	case d.project.Source == target.FromEnvironment:
-	case err == nil && here != nil && here.ProjectID == d.project.ID:
-		d.project.Source = target.FromFile
-	default:
-		d.project.Source = target.Picked
+	domain := ""
+	if d.machine.Machine != nil {
+		domain = d.machine.Machine.AppsDomain
+	}
+	if err := target.WriteFile(d.dir, d.project.ID, domain); err != nil {
+		return fail.Failed("The deploy runs, but %s could not be written here: %s", target.FileName, err).
+			WithLead("Follow it:", "pethost logs --deploy -f"+d.project.Flag())
 	}
 	return nil
+}
+
+// sourceFromHere settles how the commands the deploy names from here on find the project: by
+// PETHOST_PROJECT or by the .pethost seen from where the person stands, which need no -p; else
+// by -p.
+func (d *deploy) sourceFromHere() {
+	if d.project.Source == target.FromEnvironment {
+		return
+	}
+
+	here, err := target.FindFile(".")
+	if err == nil && here != nil && here.ProjectID == d.project.ID {
+		d.project.Source = target.FromFile
+		return
+	}
+	d.project.Source = target.Picked
 }

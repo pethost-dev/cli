@@ -69,10 +69,13 @@ func (d *domainAdd) run(ctx context.Context) error {
 	var done *outcome
 	err := againIfChanged(func() error {
 		var err error
-		if before, err = d.read(ctx); err != nil {
+		before, err = d.read(ctx)
+		if err != nil {
 			return err
 		}
-		if route, err = d.route(before); err != nil {
+
+		route, err = d.route(before)
+		if err != nil {
 			return err
 		}
 
@@ -151,29 +154,9 @@ func (l listener) String() string {
 // where every address of the project leads, when that is one place; else to the one port that
 // listens; else the person picks, or is given one runnable line for each port.
 func (d *domainAdd) leadsTo(project *pethost.Project) (listener, error) {
-	candidates := listening(project, "")
-	switch now := routed(project.Routes); {
-	case d.to != "":
-		service, port, hasPort := strings.Cut(d.to, ":")
-		if hasPort {
-			number, err := strconv.ParseUint(port, 10, 32)
-			if err != nil {
-				return listener{}, fail.Usage("pethost domain add: "+ui.Clean(d.to)+" is not service:port", d.usage)
-			}
-			return listener{service: service, port: uint32(number)}, nil
-		}
-		// A service alone: the port is the one it listens on.
-		if candidates = listening(project, service); len(candidates) == 0 {
-			return listener{}, fail.Failed("%s listens on no port now: name the port.", ui.Clean(service)).
-				WithNext(d.command(word(service) + ":<port>"))
-		}
-	case d.ownRoute(project) != nil:
-		own := d.ownRoute(project)
-		return listener{service: own.Service, port: own.Port}, nil
-	case len(now) == 1:
-		return now[0], nil
-	case len(candidates) == 0:
-		candidates = now
+	candidates, err := d.candidates(project)
+	if err != nil {
+		return listener{}, err
 	}
 
 	switch {
@@ -196,6 +179,48 @@ func (d *domainAdd) leadsTo(project *pethost.Project) (listener, error) {
 	}
 	d.to = candidates[picked].String()
 	return candidates[picked], nil
+}
+
+// candidates are the places the address may lead to, in leadsTo's order: one when it is settled,
+// several when the person is to pick, none when nothing listens.
+func (d *domainAdd) candidates(project *pethost.Project) ([]listener, error) {
+	if d.to != "" {
+		return d.typed(project)
+	}
+
+	if own := d.ownRoute(project); own != nil {
+		return []listener{{service: own.Service, port: own.Port}}, nil
+	}
+
+	now := routed(project.Routes)
+	if len(now) == 1 {
+		return now, nil
+	}
+
+	if ports := listening(project, ""); len(ports) > 0 {
+		return ports, nil
+	}
+	return now, nil
+}
+
+// typed is where the address leads as typed: service:port, or a service alone.
+func (d *domainAdd) typed(project *pethost.Project) ([]listener, error) {
+	service, port, hasPort := strings.Cut(d.to, ":")
+	if !hasPort {
+		// A service alone: the port is the one it listens on.
+		candidates := listening(project, service)
+		if len(candidates) == 0 {
+			return nil, fail.Failed("%s listens on no port now: name the port.", ui.Clean(service)).
+				WithNext(d.command(word(service) + ":<port>"))
+		}
+		return candidates, nil
+	}
+
+	number, err := strconv.ParseUint(port, 10, 32)
+	if err != nil {
+		return nil, fail.Usage("pethost domain add: "+ui.Clean(d.to)+" is not service:port", d.usage)
+	}
+	return []listener{{service: service, port: uint32(number)}}, nil
 }
 
 // ownRoute is the route the host already has for every path; nil = none.

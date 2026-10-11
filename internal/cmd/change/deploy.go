@@ -11,7 +11,6 @@ import (
 	"github.com/pethost-dev/cli/internal/operation"
 	"github.com/pethost-dev/cli/internal/say"
 	"github.com/pethost-dev/cli/internal/target"
-	"github.com/pethost-dev/cli/internal/ui"
 )
 
 // A change that is a deploy: env, domain, password, rename and rollback each send one
@@ -67,15 +66,10 @@ func refused(a *app.App, answer *pethost.DeployProjectResponse) error {
 	e := fail.Failed("The machine cannot deploy this: %s", say.Violation(answer.Violations[0]))
 	e.Code = "VIOLATIONS"
 	if a.JSON {
-		return withAnswer(a, answer, e)
+		return a.WithAnswer(answer, e)
 	}
 
-	for _, adjustment := range answer.Adjustments {
-		a.UI.Note("%s", ui.Clean(adjustment))
-	}
-	for _, violation := range answer.Violations {
-		a.UI.ErrLine(a.UI.Err.Cross() + say.Violation(violation))
-	}
+	say.Refusal(a.UI, answer.Adjustments, answer.Violations)
 	a.UI.ErrLine("  Nothing changed.")
 	return e.AlreadyShown()
 }

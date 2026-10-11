@@ -78,11 +78,6 @@ func Interrupted() *Error {
 	return &Error{Exit: ExitInterrupted, Code: "INTERRUPTED", Shown: true}
 }
 
-// NotBuilt is the body of a command that is registered and not written yet.
-func NotBuilt(commandPath string) *Error {
-	return Failed("%s is not built yet", commandPath)
-}
-
 // WithNext is the error with the next thing to type.
 func (e *Error) WithNext(next string) *Error {
 	e.Next = next

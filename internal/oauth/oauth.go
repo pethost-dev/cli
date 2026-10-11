@@ -17,6 +17,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/pethost-dev/cli/internal/fail"
 )
 
 // A Server is the panel as an authorization server: what its metadata says of it (RFC 8414).
@@ -194,8 +196,5 @@ func notReached(request *http.Request, err error) error {
 	if ctxErr := request.Context().Err(); ctxErr != nil {
 		return ctxErr
 	}
-	for inner := errors.Unwrap(err); inner != nil; inner = errors.Unwrap(err) {
-		err = inner
-	}
-	return &NotReached{Cause: err}
+	return &NotReached{Cause: fail.Innermost(err)}
 }

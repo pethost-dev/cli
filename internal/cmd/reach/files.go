@@ -108,7 +108,8 @@ func (f *files) show(ctx context.Context, first *pethost.ReadPathResponse) error
 // eachAnswer gives the first answer and every one that follows it to use: a directory's next
 // pages, a file's next pieces.
 func (f *files) eachAnswer(ctx context.Context, first *pethost.ReadPathResponse, use func(*pethost.ReadPathResponse) error) error {
-	for answer := first; ; {
+	answer := first
+	for {
 		if err := use(answer); err != nil {
 			return err
 		}
@@ -123,10 +124,11 @@ func (f *files) eachAnswer(ctx context.Context, first *pethost.ReadPathResponse,
 			return nil
 		}
 
-		var err error
-		if answer, err = f.read(ctx, more); err != nil {
+		next, err := f.read(ctx, more)
+		if err != nil {
 			return err
 		}
+		answer = next
 	}
 }
 
@@ -209,7 +211,8 @@ func (f *files) print(ctx context.Context, first *pethost.ReadPathResponse) erro
 		_, err := io.WriteString(text, answer.Text)
 		return err
 	})
-	if closeErr := text.Close(); err == nil {
+	closeErr := text.Close()
+	if err == nil {
 		err = closeErr
 	}
 	if err == nil && out.Terminal && !endsLine {

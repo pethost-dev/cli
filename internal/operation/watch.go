@@ -34,16 +34,6 @@ type Result struct {
 	Failure []string
 }
 
-// Run shows a started operation to its end and reports how it ended: Watch, then Report. A
-// command whose words depend on the result calls the two itself.
-func Run(ctx context.Context, a *app.App, project target.Project, started *pethost.Operation, words Words) (*Result, error) {
-	result, err := Watch(ctx, a, project, started, words.Doing)
-	if err != nil {
-		return nil, err
-	}
-	return result, result.Report(ctx, a, project, words)
-}
-
 // Watch shows an operation, as the call that started it answered, until it ends: doing is the
 // title beside the spinner ("Building…"), and the log's last lines are redrawn under it. Ctrl-C
 // leaves the operation running and ends the command with how to follow it.
@@ -149,7 +139,7 @@ func orEnded(err error) error {
 // says how to follow it.
 func left(a *app.App, project target.Project, started *pethost.Operation) error {
 	follow := "pethost status" + project.Flag()
-	if started.Kind == pethost.OperationKindDeploy || started.Kind == pethost.OperationKindRecreateService {
+	if isDeploy(started) {
 		follow = "pethost logs --deploy -f" + project.Flag()
 	}
 

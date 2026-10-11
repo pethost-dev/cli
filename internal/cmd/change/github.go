@@ -83,9 +83,7 @@ func connectGithub(ctx context.Context, a *app.App, noQueue bool, source pethost
 		return err
 	}
 	a.UI.Done("Deployed commit %s in %s.", commitWords(done.Operation.GithubCommit, ""), done.took())
-	if !a.JSON {
-		saySource(a, done.Project)
-	}
+	saySource(a, done.Project)
 	return done.said(a)
 }
 

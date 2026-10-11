@@ -105,12 +105,8 @@ func restartMachine(ctx context.Context, a *app.App, when restartWhen) error {
 		said = a.UI.Err.When(when.moment)
 	}
 	question := "Restart your machine " + said + "? Every project is down while it restarts, and containers come back as their restart policies say."
-	yes, err := a.UI.Confirm(question, a.CommandLine("--yes"))
-	if err != nil {
+	if err := askFirst(a, question, "The machine was not restarted."); err != nil {
 		return err
-	}
-	if !yes {
-		return fail.Declined("The machine was not restarted.")
 	}
 
 	answer, err := client.RunMachineAction(ctx, &pethost.RunMachineActionRequest{

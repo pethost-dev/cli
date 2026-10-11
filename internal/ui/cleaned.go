@@ -66,8 +66,10 @@ func (c *cleaned) Close() error {
 // unfinished is how many bytes at the end of text are the start of something whose rest may
 // still come: an escape sequence without its end, else a character without its last bytes.
 func unfinished(text string) int {
-	if start := strings.LastIndexByte(text, escape); start >= 0 && !sequenceWhole(text[start:]) {
-		return len(text) - start
+	if start := strings.LastIndexByte(text, escape); start >= 0 {
+		if _, whole := sequenceEnd(text, start); !whole {
+			return len(text) - start
+		}
 	}
 
 	for back := 1; back <= min(utf8.UTFMax, len(text)); back++ {
@@ -79,22 +81,4 @@ func unfinished(text string) int {
 		}
 	}
 	return 0
-}
-
-// sequenceWhole says whether the escape sequence that sequence starts with has its end in it.
-func sequenceWhole(sequence string) bool {
-	if sequenceEnd(sequence, 0) < len(sequence) {
-		return true
-	}
-	// It runs to the end of the text: whole only if its last byte is one that ends its kind.
-	last := sequence[len(sequence)-1]
-	switch {
-	case len(sequence) < 2:
-		return false
-	case sequence[1] == '[':
-		return len(sequence) > 2 && last >= 0x40 && last <= 0x7e
-	case strings.IndexByte("]PX^_", sequence[1]) >= 0:
-		return last == 0x07 || strings.HasSuffix(sequence[2:], "\x1b\\")
-	}
-	return true
 }

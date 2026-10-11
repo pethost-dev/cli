@@ -27,23 +27,7 @@ type facts struct {
 }
 
 func readFacts(ctx context.Context, a *app.App, project target.Project) (facts, error) {
-	client, err := a.Client()
-	if err != nil {
-		return facts{}, err
-	}
-
-	var machine *pethost.GetMachineResponse
-	var answer *pethost.GetProjectResponse
-	err = app.Together(
-		func() (err error) {
-			machine, err = client.GetMachine(ctx, nil)
-			return err
-		},
-		func() (err error) {
-			answer, err = client.GetProject(ctx, &pethost.GetProjectRequest{ProjectID: project.ID})
-			return err
-		},
-	)
+	machine, answer, err := a.MachineAndProject(ctx, project.ID)
 	if err != nil {
 		return facts{}, err
 	}

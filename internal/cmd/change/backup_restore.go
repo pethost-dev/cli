@@ -99,14 +99,7 @@ func (r *restore) confirm(question string) error {
 	if question == "" {
 		return nil
 	}
-	yes, err := r.a.UI.Confirm(question, r.a.CommandLine("--yes"))
-	if err != nil {
-		return err
-	}
-	if !yes {
-		return fail.Declined("Nothing was restored.")
-	}
-	return nil
+	return askFirst(r.a, question, "Nothing was restored.")
 }
 
 // replaceVolumes settles which volumes of a project on the machine the restore replaces, and

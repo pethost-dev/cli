@@ -44,7 +44,8 @@ func ReadFile(dir string) (*File, error) {
 	}
 
 	file := File{Dir: dir}
-	if err := json.Unmarshal(data, &file); err != nil || file.ProjectID == "" {
+	err = json.Unmarshal(data, &file)
+	if err != nil || file.ProjectID == "" {
 		return nil, errors.New(path + " is not a file pethost deploy wrote: remove it, or name the project with -p")
 	}
 	// The file may have come with someone else's repository: what it says is their text, and is
@@ -130,6 +131,12 @@ func (f *File) Says(state State, machine *pethost.GetMachineResponse) string {
 	return fmt.Sprintf("This folder's %s was written for %s on %s, and your machine, %s, has no such project.", FileName, id, was, now)
 }
 
+// notHere is the refusal of a .pethost whose project this machine does not have (Gone,
+// Elsewhere), with the command that puts the folder online here.
+func (f *File) notHere(state State, machine *pethost.GetMachineResponse) *fail.Error {
+	return fail.Failed("%s", f.Says(state, machine)).WithLead("To put this folder online here, run:", "pethost deploy")
+}
+
 // Explain is a command's failure, said as what it means when the command took its project from
 // a .pethost that this machine has no project for: the folder is another account's, or its
 // project was deleted. The machine then answers that it has no such project, which is true and
@@ -157,7 +164,7 @@ func Explain(ctx context.Context, a *app.App, failure error) error {
 	if state != Gone && state != Elsewhere {
 		return failure // The machine has the project: something else was not found.
 	}
-	e := fail.Failed("%s", project.File.Says(state, machine)).WithLead("To put this folder online here, run:", "pethost deploy")
+	e := project.File.notHere(state, machine)
 	e.Code = api.Code.String()
 	return e
 }

@@ -125,7 +125,7 @@ func listCommits(ctx context.Context, a *app.App, client *pethost.Client, projec
 func commitCells(out *ui.Stream, commit pethost.BranchCommit) []string {
 	sha, title := "", ""
 	if commit.Commit != nil {
-		sha, title = commitWords(&pethost.GithubCommit{Sha: commit.Commit.Sha}, ""), ui.Clean(commit.Commit.Title)
+		sha, title = shortSha(commit.Commit.Sha), ui.Clean(commit.Commit.Title)
 	}
 
 	var notes []string

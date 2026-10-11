@@ -49,6 +49,25 @@ func (l *Live) Title(title string) {
 	l.change(func() { l.title = title })
 }
 
+// Follow draws the title again as title() says it, five times a second, until the function it
+// returns is called: a count that grows.
+func (l *Live) Follow(title func() string) (stop func()) {
+	done := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(200 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				l.Title(title())
+			}
+		}
+	}()
+	return func() { close(done) }
+}
+
 // Line adds a line of the log shown under the title; the last few stay.
 func (l *Live) Line(text string) {
 	l.change(func() {
@@ -118,19 +137,19 @@ func (l *Live) erase() {
 // draw writes the lines; the screen's lock is held. No line may wrap, or erase would leave part
 // of it: each is cut to the terminal's width.
 func (l *Live) draw() {
-	err := l.screen.Err
-	width := err.Width()
+	stderr := l.screen.Err
+	width := stderr.Width()
 
 	elapsed := Duration(time.Since(l.started))
-	lines := []string{err.Cyan(spinner[l.frame%len(spinner)]) + " " + l.title + " " + err.Dim(elapsed)}
+	lines := []string{stderr.Cyan(spinner[l.frame%len(spinner)]) + " " + l.title + " " + stderr.Dim(elapsed)}
 	for _, line := range l.tail {
-		lines = append(lines, "    "+err.Dim(line))
+		lines = append(lines, "    "+stderr.Dim(line))
 	}
 
 	var out strings.Builder
 	for _, line := range lines {
 		out.WriteString(cut(line, width) + "\n")
 	}
-	fmt.Fprint(err, out.String())
+	fmt.Fprint(stderr, out.String())
 	l.drawn = len(lines)
 }

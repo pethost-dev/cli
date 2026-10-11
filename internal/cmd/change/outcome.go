@@ -43,7 +43,7 @@ func finish(ctx context.Context, a *app.App, project target.Project, call starte
 	}
 
 	if done.Operation.Status != pethost.OperationStatusSucceeded {
-		return done, withAnswer(a, done.answer, done.Report(ctx, a, project, words))
+		return done, a.WithAnswer(done.answer, done.Report(ctx, a, project, words))
 	}
 	return done, nil
 }
@@ -61,17 +61,6 @@ func endedInCall(call started) *outcome {
 		},
 		answer: call.answer,
 	}
-}
-
-// withAnswer writes a failed call's answer for --json and returns err as it is: the answer says
-// more than the error's one line.
-func withAnswer(a *app.App, answer any, err error) error {
-	if a.JSON {
-		if printErr := a.PrintJSON(answer); printErr != nil {
-			return printErr
-		}
-	}
-	return err
 }
 
 // took is how long the operation ran, in words: "6 s".

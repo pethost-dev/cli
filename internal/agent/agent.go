@@ -19,6 +19,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/pethost-dev/cli/internal/kept"
 )
 
 // An Agent is a coding agent's program.
@@ -72,24 +74,26 @@ func Installed() []Agent {
 	return found
 }
 
+// Off says whether PETHOST_AGENT turns the agents off: none is run and none is offered.
+func Off() bool {
+	return os.Getenv(Variable) == "none"
+}
+
 // Chosen is the agent that writes without a question: the one PETHOST_AGENT names, else the
 // one the person chose before, if this computer still has it. byVariable = PETHOST_AGENT named
-// it; off = PETHOST_AGENT says none.
-func Chosen() (agent Agent, ok, byVariable, off bool) {
+// it.
+func Chosen() (agent Agent, ok, byVariable bool) {
 	program := os.Getenv(Variable)
-	if program == "none" {
-		return Agent{}, false, true, true
-	}
 	byVariable = program != ""
 	if !byVariable {
 		program = remembered()
 	}
 	for _, agent := range Installed() {
 		if agent.Program == program {
-			return agent, true, byVariable, false
+			return agent, true, byVariable
 		}
 	}
-	return Agent{}, false, byVariable, false
+	return Agent{}, false, byVariable
 }
 
 // CommandLine is the command a run of the agent is, as a person would type it: the task, which
@@ -163,11 +167,7 @@ type choice struct {
 }
 
 func choiceFile() (string, error) {
-	dir, err := os.UserConfigDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(dir, "pethost", "agent.json"), nil
+	return kept.File("agent.json")
 }
 
 // ChoiceFile is where the choice is kept, to tell the person; empty where nothing can be kept.
@@ -177,13 +177,13 @@ func ChoiceFile() string {
 }
 
 func remembered() string {
-	var kept choice
+	var chosen choice
 	if path, err := choiceFile(); err == nil {
 		if data, err := os.ReadFile(path); err == nil {
-			json.Unmarshal(data, &kept)
+			json.Unmarshal(data, &chosen)
 		}
 	}
-	return kept.Program
+	return chosen.Program
 }
 
 // Remember keeps the agent as the person's choice for the next runs.

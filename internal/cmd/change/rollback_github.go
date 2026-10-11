@@ -63,8 +63,16 @@ func commitBefore(commits []pethost.BranchCommit) *pethost.GithubCommit {
 	return nil
 }
 
-// shortSha is how many characters of a commit's SHA a line shows.
-const shortSha = 7
+// shownSha is how many characters of a commit's SHA a line shows.
+const shownSha = 7
+
+// shortSha is a commit's SHA as a line shows it: its start.
+func shortSha(sha string) string {
+	if len(sha) > shownSha {
+		sha = sha[:shownSha]
+	}
+	return ui.Clean(sha)
+}
 
 // commitWords are a commit in a line: its SHA's start and its title, `1a2b3c4 "Fix search"`.
 // The title is other people's text.
@@ -73,13 +81,10 @@ func commitWords(commit *pethost.GithubCommit, sha string) string {
 	if commit != nil {
 		sha, title = commit.Sha, ui.Clean(commit.Title)
 	}
-	if len(sha) > shortSha {
-		sha = sha[:shortSha]
-	}
 	if title == "" {
-		return ui.Clean(sha)
+		return shortSha(sha)
 	}
-	return ui.Clean(sha) + ` "` + title + `"`
+	return shortSha(sha) + ` "` + title + `"`
 }
 
 // text is a field that may be absent as text: empty when it is.

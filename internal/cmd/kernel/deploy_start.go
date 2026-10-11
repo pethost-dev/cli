@@ -10,7 +10,6 @@ import (
 	"github.com/pethost-dev/cli/internal/fail"
 	"github.com/pethost-dev/cli/internal/operation"
 	"github.com/pethost-dev/cli/internal/say"
-	"github.com/pethost-dev/cli/internal/ui"
 )
 
 // The call that starts the deploy: CreateProject for a new project, DeployProject for a new
@@ -68,16 +67,11 @@ func (d *deploy) refused(violations []pethost.SpecViolation, adjustments []strin
 	e := fail.Failed("The machine cannot deploy these files: %s", say.Violation(violations[0]))
 	e.Code = "VIOLATIONS"
 	if d.a.JSON {
-		return d.printAnswer(e)
+		return d.a.WithAnswer(d.answer, e)
 	}
 
 	screen := d.a.UI
-	for _, adjustment := range adjustments {
-		screen.Note("%s", ui.Clean(adjustment))
-	}
-	for _, violation := range violations {
-		screen.ErrLine(screen.Err.Cross() + say.Violation(violation))
-	}
+	say.Refusal(screen, adjustments, violations)
 	if runsNothing(d.packed.rootNames) {
 		return &nothingToRun{refusal: e.AlreadyShown(), violations: violations}
 	}
@@ -108,12 +102,4 @@ func runsNothing(rootNames []string) bool {
 		isYAML := strings.HasSuffix(lower, ".yaml") || strings.HasSuffix(lower, ".yml")
 		return lower == "dockerfile" || (isYAML && strings.Contains(lower, "compose"))
 	})
-}
-
-// printAnswer writes the last call's answer for --json and returns err as it is.
-func (d *deploy) printAnswer(err error) error {
-	if printErr := d.a.PrintJSON(d.answer); printErr != nil {
-		return printErr
-	}
-	return err
 }

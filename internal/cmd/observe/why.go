@@ -12,7 +12,7 @@ import (
 
 // whyCommand is `pethost why`.
 func whyCommand(a *app.App) *cobra.Command {
-	cmd := &cobra.Command{
+	return &cobra.Command{
 		Use:   "why",
 		Short: "What is wrong or slow: problems, failing paths, the log lines near them",
 		Long: `One screen from three facts the machine keeps: the project's problems, as the machine words
@@ -28,7 +28,6 @@ With --json it prints the three answers the screen is made from, one a line: the
 			return runWhy(cmd.Context(), a)
 		},
 	}
-	return cmd
 }
 
 // why is one run of `pethost why`: what the machine answered, then what stands near it.

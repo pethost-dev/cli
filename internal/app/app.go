@@ -1,6 +1,8 @@
 // Package app is what every command gets: the global flags, the screen, the sign-in and the
 // SDK's client, made when a command first calls the API. One App is made for a run, and each
-// command's function closes over it.
+// command's function closes over it. It also has what commands share of a run: its command line
+// as a refusal repeats it (CommandLine, ShellWord), --debug's lines (Debugf), and Together, which
+// makes independent calls at once.
 //
 // The context a command works under is cobra's: cmd.Context(), which Ctrl-C cancels.
 package app
@@ -113,6 +115,17 @@ func (a *App) Client() (*pethost.Client, error) {
 // line of stdout. A stream's answers are one call each.
 func (a *App) PrintJSON(value any) error {
 	return jsonout.Write(a.UI.Out, value)
+}
+
+// WithAnswer writes a failed call's answer for --json and returns err as it is: the answer says
+// more than the error's one line.
+func (a *App) WithAnswer(answer any, err error) error {
+	if a.JSON {
+		if printErr := a.PrintJSON(answer); printErr != nil {
+			return printErr
+		}
+	}
+	return err
 }
 
 // CommandLine is this run's command line with more arguments added, as a refusal names it:

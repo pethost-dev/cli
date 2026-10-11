@@ -3,6 +3,7 @@ package observe
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	pethost "github.com/pethost-dev/sdk/go"
@@ -33,22 +34,19 @@ func statusOf(cmd *cobra.Command, value string) (statusFilter, error) {
 		return statusFilter{}, nil
 	}
 
-	var class, code uint32
-	switch lower := strings.ToLower(value); {
-	case len(lower) == 3 && lower[0] >= '1' && lower[0] <= '9' && lower[1:] == "xx":
-		class = uint32(lower[0] - '0')
-	case len(lower) == 3 && lower[0] >= '1' && lower[0] <= '9' && isDigits(lower[1:]):
-		class = uint32(lower[0] - '0')
-		code = class*100 + uint32(lower[1]-'0')*10 + uint32(lower[2]-'0')
-	default:
-		message := fmt.Sprintf("%s: --status %q is neither a class of statuses such as 5xx nor one status such as 404", cmd.CommandPath(), value)
-		return statusFilter{}, fail.Usage(message, cmd.UseLine())
+	lower := strings.ToLower(value)
+	if len(lower) == 3 && lower[0] >= '1' && lower[0] <= '9' {
+		class := uint32(lower[0] - '0')
+		if lower[1:] == "xx" {
+			return statusFilter{class: class}, nil
+		}
+		if code, err := strconv.ParseUint(lower, 10, 32); err == nil {
+			return statusFilter{class: class, code: uint32(code)}, nil
+		}
 	}
-	return statusFilter{class: class, code: code}, nil
-}
 
-func isDigits(text string) bool {
-	return strings.Trim(text, "0123456789") == ""
+	message := fmt.Sprintf("%s: --status %q is neither a class of statuses such as 5xx nor one status such as 404", cmd.CommandPath(), value)
+	return statusFilter{}, fail.Usage(message, cmd.UseLine())
 }
 
 // exact says whether one status alone was asked for.

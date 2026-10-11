@@ -1,5 +1,6 @@
 // Package kernel is the commands the others are measured against: the status, which is also
-// the bare command, ls, and deploy. Each is a file of its own, deploy several.
+// the bare command, ls, and deploy. status and ls are the files that begin with status, deploy
+// the ones that begin with deploy.
 package kernel
 
 import (

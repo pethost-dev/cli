@@ -66,8 +66,9 @@ func sayServices(a *app.App, project *pethost.Project) {
 	}
 }
 
-// again is a command with the services it was given: "pethost start web".
-func again(command string, services []string, project target.Project) string {
+// startAgain is the command that starts the services given: "pethost start web".
+func startAgain(services []string, project target.Project) string {
+	command := "pethost start"
 	for _, service := range services {
 		command += " " + word(service)
 	}

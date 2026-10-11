@@ -3,7 +3,6 @@ package kernel
 import (
 	"context"
 
-	pethost "github.com/pethost-dev/sdk/go"
 	"github.com/spf13/cobra"
 
 	"github.com/pethost-dev/cli/internal/app"
@@ -67,23 +66,7 @@ func showMachine(ctx context.Context, a *app.App) error {
 // showProject shows one project under the machine's line. The two answers are asked for at
 // once.
 func showProject(ctx context.Context, a *app.App, project target.Project) error {
-	client, err := a.Client()
-	if err != nil {
-		return err
-	}
-
-	var machine *pethost.GetMachineResponse
-	var answer *pethost.GetProjectResponse
-	err = app.Together(
-		func() (err error) {
-			machine, err = client.GetMachine(ctx, nil)
-			return err
-		},
-		func() (err error) {
-			answer, err = client.GetProject(ctx, &pethost.GetProjectRequest{ProjectID: project.ID})
-			return err
-		},
-	)
+	machine, answer, err := a.MachineAndProject(ctx, project.ID)
 	if err != nil {
 		return err
 	}

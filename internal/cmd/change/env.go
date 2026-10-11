@@ -91,7 +91,7 @@ func listEnv(ctx context.Context, a *app.App) error {
 	table.Flush()
 
 	if line := nobodyReadsLine(answer.Project); line != "" {
-		a.UI.Info("%s", strings.TrimSpace(line))
+		a.UI.Info("%s", line)
 	}
 	a.UI.Info("Their values:  %s", a.UI.Err.Bold("pethost env --show"+project.Flag()))
 	return nil

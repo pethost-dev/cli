@@ -18,6 +18,8 @@ import (
 	"strings"
 
 	"golang.org/x/crypto/ssh"
+
+	"github.com/pethost-dev/cli/internal/kept"
 )
 
 // A Key is this computer's SSH key: the CLI's own, which no other program uses.
@@ -29,20 +31,16 @@ type Key struct {
 	Fingerprint string
 }
 
-// KeyFile is where the key is kept: pethost/ssh_key under the user's configuration directory,
+// keyFile is where the key is kept: pethost/ssh_key under the user's configuration directory,
 // beside the sign-in.
-func KeyFile() (string, error) {
-	dir, err := os.UserConfigDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(dir, "pethost", "ssh_key"), nil
+func keyFile() (string, error) {
+	return kept.File("ssh_key")
 }
 
 // OwnKey is this computer's key, made on first use: an ed25519 key in a file only its owner
 // reads.
 func OwnKey() (*Key, error) {
-	path, err := KeyFile()
+	path, err := keyFile()
 	if err != nil {
 		return nil, err
 	}

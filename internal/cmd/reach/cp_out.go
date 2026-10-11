@@ -123,7 +123,8 @@ func (c *copying) save(body io.Reader, to, name string) (saved string, err error
 	}
 
 	_, err = io.Copy(file, c.teed(body))
-	if closeErr := file.Close(); err == nil {
+	closeErr := file.Close()
+	if err == nil {
 		err = closeErr
 	}
 	if err == nil {

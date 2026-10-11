@@ -32,7 +32,7 @@ machine may start them, as their restart policies say.`,
 		if _, err := runServices(cmd.Context(), a, project, *noQueue, args, pethost.RunProjectActionStopServices{Services: args}, words); err != nil {
 			return err
 		}
-		a.UI.Info("  Start again:  %s", a.UI.Err.Bold(again("pethost start", args, project)))
+		a.UI.Info("  Start again:  %s", a.UI.Err.Bold(startAgain(args, project)))
 		return nil
 	}
 	return cmd

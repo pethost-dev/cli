@@ -21,15 +21,13 @@ func (d *deploy) finish(ctx context.Context, result *operation.Result) error {
 	if err := result.Report(ctx, d.a, d.project, words); err != nil {
 		d.afterFailure()
 		if d.a.JSON {
-			return d.printAnswer(err)
+			return d.a.WithAnswer(d.answer, err)
 		}
 		if d.own != nil && disproves(result.Operation) {
 			return d.takeBack(ctx, result, err)
 		}
 		return err
 	}
-	// The files this run wrote are proven: from here on they are the person's.
-	d.own = nil
 
 	if d.a.JSON {
 		return d.a.PrintJSON(d.answer)
@@ -73,7 +71,7 @@ func buildsAnImage(project *pethost.Project) bool {
 
 // afterFailure says, under a first deploy that failed, that the project exists all the same.
 func (d *deploy) afterFailure() {
-	if d.writeFile && !d.a.JSON {
+	if d.writeFile {
 		d.a.UI.Info("  Wrote %s: this folder is %s now, and %s sends the fix.",
 			target.FileName, ui.Clean(d.project.ID), d.a.UI.Err.Bold("pethost deploy"))
 	}

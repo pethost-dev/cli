@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"cmp"
 	"fmt"
 	"io"
 	"strings"
@@ -129,7 +130,7 @@ func (s *Screen) Secret(label string) (string, error) {
 		return strings.TrimSuffix(strings.TrimSuffix(string(value), "\n"), "\r"), err
 	}
 
-	restore, err := s.raw()
+	restore, err := s.rawInput()
 	if err != nil {
 		return "", err
 	}
@@ -156,7 +157,7 @@ const hintColumn = 48
 // answer is the fallback. It needs a terminal (CanAsk): the caller decides what happens
 // without one.
 func (s *Screen) Ask(label, fallback string, hint func(value string) string) (string, error) {
-	restore, err := s.raw()
+	restore, err := s.rawInput()
 	if err != nil {
 		return "", err
 	}
@@ -167,7 +168,7 @@ func (s *Screen) Ask(label, fallback string, hint func(value string) string) (st
 		question = label + " " + s.Err.Dim("["+fallback+"]") + ": "
 	}
 	draw := func(value string) {
-		said := hint(orFallback(value, fallback))
+		said := hint(cmp.Or(value, fallback))
 		typed, width := Width(question+value), s.Err.Width()
 		// The hint starts in its column, or nearer when the line would not hold it there.
 		gap := max(3, min(hintColumn-typed, width-1-typed-Width(said)))
@@ -181,14 +182,7 @@ func (s *Screen) Ask(label, fallback string, hint func(value string) string) (st
 	if err != nil {
 		return "", err
 	}
-	return orFallback(strings.TrimSpace(value), fallback), nil
-}
-
-func orFallback(value, fallback string) string {
-	if value == "" {
-		return fallback
-	}
-	return value
+	return cmp.Or(strings.TrimSpace(value), fallback), nil
 }
 
 // typedLine reads a line in raw mode, calling changed with the line so far after each key that

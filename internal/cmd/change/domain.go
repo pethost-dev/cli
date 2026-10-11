@@ -90,7 +90,7 @@ func printHosts(out *ui.Stream, project *pethost.Project) {
 
 // routePath is a route's path after its host's address; nothing for the route of every path.
 func routePath(route pethost.Route) string {
-	if route.Path == "" || route.Path == "/" {
+	if everyPath(route) {
 		return ""
 	}
 	return ui.Clean(route.Path)

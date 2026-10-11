@@ -35,7 +35,8 @@ func Install(ctx context.Context, version string) (path string, err error) {
 	if err == nil {
 		err = fresh.Chmod(0o755)
 	}
-	if closeErr := fresh.Close(); err == nil {
+	closeErr := fresh.Close()
+	if err == nil {
 		err = closeErr
 	}
 	if err != nil {
@@ -70,12 +71,12 @@ func running() (string, error) {
 // written against the release's checksums.
 func download(ctx context.Context, version string, into io.Writer) error {
 	release := baseURL() + "/download/v" + version + "/"
-	want, err := checksum(ctx, release+"checksums.txt", Binary())
+	want, err := checksum(ctx, release+"checksums.txt", binary())
 	if err != nil {
 		return err
 	}
 
-	program, err := fetch(ctx, release+Binary())
+	program, err := fetch(ctx, release+binary())
 	if err != nil {
 		return err
 	}

@@ -95,6 +95,10 @@ func Machine(machine *pethost.Machine) string {
 
 // Resources is what the plan gives the machine: "2 CPU, 3 GB".
 func Resources(machine *pethost.Machine) string {
-	cores := strings.TrimSuffix(strconv.FormatFloat(machine.CPUTotalCores, 'f', 1, 64), ".0")
-	return cores + " CPU, " + ui.Size(machine.MemoryTotalBytes)
+	return Cores(machine.CPUTotalCores) + " CPU, " + ui.Size(machine.MemoryTotalBytes)
+}
+
+// Cores is a number of CPU cores: "2", "0.3".
+func Cores(count float64) string {
+	return strings.TrimSuffix(strconv.FormatFloat(count, 'f', 1, 64), ".0")
 }

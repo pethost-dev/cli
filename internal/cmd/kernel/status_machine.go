@@ -17,8 +17,13 @@ import (
 
 func printMachine(a *app.App, answer *pethost.GetMachineResponse) {
 	printMachineLine(a, answer.Machine)
-	defer sayDeleted(a, answer.DeletedProjects)
-	if len(answer.Projects) == 0 {
+	printProjects(a, answer.Projects)
+	sayDeleted(a, answer.DeletedProjects)
+}
+
+// printProjects writes a row for each project with its problems under it, then what to type next.
+func printProjects(a *app.App, projects []pethost.ProjectSummary) {
+	if len(projects) == 0 {
 		fmt.Fprintln(a.UI.Out, "No projects yet.")
 		a.UI.Info("In your app's folder, run:   %s", a.UI.Err.Bold("pethost deploy"))
 		return
@@ -26,15 +31,15 @@ func printMachine(a *app.App, answer *pethost.GetMachineResponse) {
 
 	out := a.UI.Out
 	table := out.Table()
-	for _, project := range answer.Projects {
-		table.Row(projectCells(out, answer.Projects, project)...)
+	for _, project := range projects {
+		table.Row(projectCells(out, projects, project)...)
 		for _, problem := range project.Problems {
 			table.Line(problemLine(out, problem))
 		}
 	}
 	table.Flush()
 
-	if troubled := firstWithProblems(answer.Projects); troubled != "" {
+	if troubled := firstWithProblems(projects); troubled != "" {
 		a.UI.Next("pethost why -p " + app.ShellWord(troubled))
 	}
 }
@@ -157,37 +162,36 @@ func stateCounts(out *ui.Stream, states []pethost.ServiceState) string {
 	}
 
 	running := 0
-	var words []string
-	counts := map[string]int{}
+	var others []pethost.ServiceState
+	counts := map[pethost.ServiceState]int{}
 	for _, state := range states {
 		if say.Runs(state) {
 			running++
 			continue
 		}
-		word := say.State(state)
-		if counts[word] == 0 {
-			words = append(words, word)
+		if counts[state] == 0 {
+			others = append(others, state)
 		}
-		counts[word]++
+		counts[state]++
 	}
 
 	var parts []string
 	if running > 0 {
 		parts = append(parts, out.Green(fmt.Sprintf("%d running", running)))
 	}
-	for _, word := range words {
-		parts = append(parts, stateColor(out, fmt.Sprintf("%d %s", counts[word], word), word))
+	for _, state := range others {
+		parts = append(parts, stateColor(out, fmt.Sprintf("%d %s", counts[state], say.State(state)), state))
 	}
 	return strings.Join(parts, ", ")
 }
 
 // stateColor paints a state's words: one that waits is yellow, one a person chose is plain,
 // anything else that does not run is red.
-func stateColor(out *ui.Stream, text, word string) string {
-	switch word {
-	case "starting", "not created":
+func stateColor(out *ui.Stream, text string, state pethost.ServiceState) string {
+	switch state {
+	case pethost.ServiceStateStarting, pethost.ServiceStateNotCreated:
 		return out.Yellow(text)
-	case "stopped":
+	case pethost.ServiceStateStopped:
 		return out.Dim(text)
 	}
 	return out.Red(text)

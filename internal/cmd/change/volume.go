@@ -132,17 +132,14 @@ func removeVolume(ctx context.Context, a *app.App, project target.Project, noQue
 		return state.projectErr
 	}
 
-	if !hasVolume(state.project, name) {
+	at := slices.IndexFunc(state.project.Volumes, func(volume pethost.Volume) bool { return volume.Volume == name })
+	if at < 0 {
 		return noSuchVolume(project, state.project, name)
 	}
 
-	question := fmt.Sprintf("Delete the volume %s of %s, with its data? %s", ui.Clean(name), ui.Clean(project.ID), afterVolume(a.UI.Err, state, name))
-	yes, err := a.UI.Confirm(question, a.CommandLine("--yes"))
-	if err != nil {
+	question := fmt.Sprintf("Delete the volume %s of %s, with its data? %s", ui.Clean(name), ui.Clean(project.ID), afterVolume(a.UI.Err, state, state.project.Volumes[at]))
+	if err := askFirst(a, question, "Nothing was deleted."); err != nil {
 		return err
-	}
-	if !yes {
-		return fail.Declined("Nothing was deleted.")
 	}
 
 	answer, err := act(ctx, a, project, noQueue, "Deleting the volume…", pethost.RunProjectActionDeleteVolume(name))
@@ -154,10 +151,6 @@ func removeVolume(ctx context.Context, a *app.App, project target.Project, noQue
 	}
 	a.UI.Done("Deleted the volume %s of %s.", ui.Clean(name), ui.Clean(project.ID))
 	return nil
-}
-
-func hasVolume(project *pethost.Project, name string) bool {
-	return slices.ContainsFunc(project.Volumes, func(volume pethost.Volume) bool { return volume.Volume == name })
 }
 
 // noSuchVolume ends the command before its question, which would ask about data that the
@@ -176,16 +169,14 @@ func noSuchVolume(project target.Project, read *pethost.Project, name string) er
 
 // afterVolume says where a volume's data is once the volume is deleted, by what the machine
 // knows of its snapshots.
-func afterVolume(err *ui.Stream, state *backupState, name string) string {
-	at := slices.IndexFunc(state.project.Volumes, func(volume pethost.Volume) bool { return volume.Volume == name })
+func afterVolume(err *ui.Stream, state *backupState, volume pethost.Volume) string {
 	switch {
 	case !state.backupsOn():
 		return "Backups are off: it is gone for good."
-	case at < 0 || state.project.SnapshotListTime.IsZero():
+	case state.project.SnapshotListTime.IsZero():
 		return "It then lives only in the snapshots that hold it, if any does."
-	case state.project.Volumes[at].SnapshotCount == 0:
+	case volume.SnapshotCount == 0:
 		return "No snapshot holds it: it is gone for good."
 	}
-	volume := state.project.Volumes[at]
 	return fmt.Sprintf("It then lives only in %s, the newest of %s.", ui.Plural(uint64(volume.SnapshotCount), "snapshot"), err.When(volume.LastBackupTime))
 }

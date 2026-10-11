@@ -17,17 +17,16 @@ func (a *App) debugClient() *http.Client {
 	if !a.Debug {
 		return nil
 	}
-	return &http.Client{Transport: debugTransport{next: http.DefaultTransport, app: a}}
+	return &http.Client{Transport: debugTransport{app: a}}
 }
 
 type debugTransport struct {
-	next http.RoundTripper
-	app  *App
+	app *App
 }
 
 func (t debugTransport) RoundTrip(request *http.Request) (*http.Response, error) {
 	started := time.Now()
-	response, err := t.next.RoundTrip(request)
+	response, err := http.DefaultTransport.RoundTrip(request)
 
 	outcome := "not reached"
 	if err == nil {

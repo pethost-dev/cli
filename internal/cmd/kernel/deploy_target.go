@@ -1,8 +1,8 @@
 package kernel
 
 import (
+	"cmp"
 	"errors"
-	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -20,7 +20,7 @@ import (
 // becomes its address.
 
 func (d *deploy) chooseProject() error {
-	if named, ok := d.namedProject(); ok {
+	if named, ok := target.NamedOutright(d.a); ok {
 		target.Announce(d.a, named)
 		d.settle(named)
 		return nil
@@ -48,21 +48,12 @@ func (d *deploy) sayFolderAbove() {
 	}
 }
 
-// namedProject is the project that -p or PETHOST_PROJECT names.
-func (d *deploy) namedProject() (target.Project, bool) {
-	if d.a.Project != "" {
-		return target.Project{ID: d.a.Project, Source: target.FromFlag}, true
-	}
-	if id := os.Getenv("PETHOST_PROJECT"); id != "" {
-		return target.Project{ID: id, Source: target.FromEnvironment}, true
-	}
-	return target.Project{}, false
-}
-
 // settle takes a project named outright: a new one is created without a question. The folder
 // gets a .pethost if it has none.
 func (d *deploy) settle(named target.Project) {
-	d.project, d.create, d.writeFile = named, !d.exists(named.ID), d.file == nil
+	d.project = named
+	d.create = !d.exists(named.ID)
+	d.writeFile = d.file == nil
 	d.sayNew()
 }
 
@@ -165,16 +156,9 @@ func (d *deploy) askName(suggested string) (string, error) {
 	}
 
 	choice := fail.Choice("This folder is not a project yet. Its name becomes its address and never changes: give it one.",
-		d.a.CommandLine("-p", orWord(suggested, "<name>")))
+		d.a.CommandLine("-p", cmp.Or(suggested, "<name>")))
 	choice.Lead = "Run:"
 	return "", choice
-}
-
-func orWord(value, word string) string {
-	if value == "" {
-		return word
-	}
-	return value
 }
 
 // addressHint says where a project of this id will live, when the machine gives it its first

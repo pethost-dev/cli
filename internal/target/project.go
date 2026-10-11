@@ -49,11 +49,8 @@ func (p Project) Flag() string {
 // Named is the project that -p, PETHOST_PROJECT or a .pethost names, in that order; false =
 // none does. It asks nobody, calls nothing and prints nothing.
 func Named(a *app.App) (Project, bool, error) {
-	if a.Project != "" {
-		return Project{ID: a.Project, Source: FromFlag}, true, nil
-	}
-	if id := os.Getenv("PETHOST_PROJECT"); id != "" {
-		return Project{ID: id, Source: FromEnvironment}, true, nil
+	if project, ok := NamedOutright(a); ok {
+		return project, true, nil
 	}
 
 	file, err := FindFile(".")
@@ -61,6 +58,18 @@ func Named(a *app.App) (Project, bool, error) {
 		return Project{}, false, err
 	}
 	return Project{ID: file.ProjectID, Source: FromFile, File: file}, true, nil
+}
+
+// NamedOutright is the project that -p or PETHOST_PROJECT names, whatever a folder says; false =
+// neither does.
+func NamedOutright(a *app.App) (Project, bool) {
+	if a.Project != "" {
+		return Project{ID: a.Project, Source: FromFlag}, true
+	}
+	if id := os.Getenv("PETHOST_PROJECT"); id != "" {
+		return Project{ID: id, Source: FromEnvironment}, true
+	}
+	return Project{}, false
 }
 
 // ForChange is the project a command that changes something means. A .pethost is checked
@@ -218,7 +227,7 @@ func checkFile(ctx context.Context, a *app.App, file *File) error {
 
 	switch state := file.On(machine); state {
 	case Gone, Elsewhere:
-		return fail.Failed("%s", file.Says(state, machine)).WithLead("To put this folder online here, run:", "pethost deploy")
+		return file.notHere(state, machine)
 	case Namesake:
 		yes, err := a.UI.Confirm(file.Says(state, machine)+" Act on it?", a.CommandLine("-p", file.ProjectID))
 		if err != nil {

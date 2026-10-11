@@ -13,18 +13,18 @@ import (
 // as a reader. The bytes still come through the run's one reader of stdin, so a key pressed
 // after that program ended is the next question's.
 
-// ErrNoTerminal is Raw's answer where nobody types into a terminal.
-var ErrNoTerminal = errors.New("stdin is not a terminal")
+// errNoTerminal is Raw's answer where nobody types into a terminal.
+var errNoTerminal = errors.New("stdin is not a terminal")
 
 // Raw puts the terminal the person types into in raw mode: nothing is echoed, Ctrl-C and
 // Ctrl-Z are bytes like any other, and what is written is shown as it comes. The function it
 // returns puts everything back; it may be called more than once, and from any goroutine.
-// ErrNoTerminal = stdin is piped or a file.
+// It fails where stdin is piped or a file.
 func (s *Screen) Raw() (restore func(), err error) {
-	if s.in == nil || !term.IsTerminal(int(s.in.Fd())) {
-		return nil, ErrNoTerminal
+	if !term.IsTerminal(int(s.In.Fd())) {
+		return nil, errNoTerminal
 	}
-	restoreIn, err := s.raw()
+	restoreIn, err := s.rawInput()
 	if err != nil {
 		return nil, err
 	}
@@ -44,11 +44,7 @@ func (s *Screen) Raw() (restore func(), err error) {
 // Window is the size of the terminal's window now, in columns and rows, read from whichever of
 // the three streams is a terminal; 80 by 24 when none says.
 func (s *Screen) Window() (columns, rows int) {
-	fds := []int{s.Out.fd, s.Err.fd}
-	if s.in != nil {
-		fds = append(fds, int(s.in.Fd()))
-	}
-	for _, fd := range fds {
+	for _, fd := range []int{s.Out.fd, s.Err.fd, int(s.In.Fd())} {
 		if columns, rows, err := term.GetSize(fd); err == nil && columns > 0 && rows > 0 {
 			return columns, rows
 		}
@@ -74,7 +70,7 @@ func (r typedReader) Read(p []byte) (int, error) {
 		return 0, nil
 	}
 
-	keys := r.screen.typed()
+	keys := r.screen.typedBytes()
 	select {
 	case b, open := <-keys:
 		if !open {

@@ -5,13 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
 	pethost "github.com/pethost-dev/sdk/go"
 
 	"github.com/pethost-dev/cli/internal/operation"
+	"github.com/pethost-dev/cli/internal/transfer"
 	"github.com/pethost-dev/cli/internal/ui"
 )
 
@@ -19,12 +19,6 @@ import (
 // the folder's compose file publishes, or to the one port a project that publishes none listens
 // on. This file says what was given, and tells a project left without an address how to give
 // it one; --private asks the machine to give none.
-
-// A listener is a service with a port its processes listen on.
-type listener struct {
-	service string
-	port    uint32
-}
 
 // sayAddress says, under a project's first good deploy, where each address the machine gave
 // leads; and under any deploy of a project that has none, why and how to give it one.
@@ -40,14 +34,14 @@ func (d *deploy) sayAddress(result *operation.Result) {
 		return
 	}
 
-	listening := listeners(project)
+	listening := listeningPorts(project)
 	switch {
-	case len(listening) == 0:
+	case listening == 0:
 		d.a.UI.Info("  No service of it listens on a port, so it has no address.")
 	case d.private:
 		d.noAddress(project, "It has no public address, as --private asked. To give it one later:")
 		d.sayPublished(project)
-	case len(listening) > 1 && !deployedWellBefore(project, result.Operation):
+	case listening > 1 && !deployedWellBefore(project, result.Operation):
 		d.noAddress(project, "More than one port listens, so no address was given. Give it to the one that is the site:")
 	default:
 		d.noAddress(project, "It has no address. To give it one:")
@@ -99,14 +93,13 @@ func deployedWellBefore(project *pethost.Project, this *pethost.Operation) bool 
 	return false
 }
 
-func listeners(project *pethost.Project) []listener {
-	var listening []listener
+// listeningPorts is how many ports the project's services listen on.
+func listeningPorts(project *pethost.Project) int {
+	count := 0
 	for _, service := range project.Services {
-		for _, port := range service.ListeningPorts {
-			listening = append(listening, listener{service: service.Service, port: port})
-		}
+		count += len(service.ListeningPorts)
 	}
-	return listening
+	return count
 }
 
 // noAddress says why the project has no address, with one runnable line for each port that
@@ -152,8 +145,5 @@ func plainCause(err error) string {
 	if errors.Is(err, context.DeadlineExceeded) {
 		return fmt.Sprintf("nothing came in %s", ui.Duration(answerWait))
 	}
-	if wrapped, ok := errors.AsType[*url.Error](err); ok {
-		err = wrapped.Err
-	}
-	return strings.TrimSpace(err.Error())
+	return strings.TrimSpace(transfer.Cause(err).Error())
 }

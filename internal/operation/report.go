@@ -73,15 +73,15 @@ func (r *Result) failed(ctx context.Context, a *app.App, project target.Project,
 		return e
 	}
 
-	screen, err := a.UI, a.UI.Err
-	screen.ErrLine(err.Cross() + headline)
+	screen, stderr := a.UI, a.UI.Err
+	screen.ErrLine(stderr.Cross() + headline)
 	r.Failure = []string{headline}
 	wholeLog := false
 	if operation.Status == pethost.OperationStatusFailed {
 		var lines []string
 		lines, wholeLog = r.evidence(ctx, a, project)
 		for _, line := range lines {
-			screen.ErrLine("    " + err.Dim(line))
+			screen.ErrLine("    " + stderr.Dim(line))
 		}
 		r.Failure = append(r.Failure, lines...)
 	}
@@ -89,7 +89,7 @@ func (r *Result) failed(ctx context.Context, a *app.App, project target.Project,
 		screen.ErrLine("  " + after)
 	}
 	if e.Next != "" && !wholeLog {
-		screen.ErrLine("  Whole log: " + err.Bold(e.Next))
+		screen.ErrLine("  Whole log: " + stderr.Bold(e.Next))
 	}
 	return e
 }

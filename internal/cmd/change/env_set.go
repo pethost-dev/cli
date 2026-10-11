@@ -204,7 +204,8 @@ func editEnv(ctx context.Context, a *app.App, project target.Project, noQueue bo
 		}
 
 		var text string
-		if text, says = edit(env.text); text == env.text {
+		text, says = edit(env.text)
+		if text == env.text {
 			return nil
 		}
 		done, err = deploy(ctx, a, project, noQueue, &pethost.DeployProjectRequest{
@@ -224,7 +225,7 @@ func editEnv(ctx context.Context, a *app.App, project target.Project, noQueue bo
 
 	a.UI.Done("%s Deployed in %s.", says, done.took())
 	if line := nobodyReadsLine(done.Project); line != "" {
-		a.UI.Info("%s", line)
+		a.UI.Info("  %s", line)
 	}
 	return done.said(a)
 }

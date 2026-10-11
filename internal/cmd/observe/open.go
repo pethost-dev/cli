@@ -18,7 +18,7 @@ import (
 
 // openCommand is `pethost open [service]`.
 func openCommand(a *app.App) *cobra.Command {
-	cmd := &cobra.Command{
+	return &cobra.Command{
 		Use:   "open [service]",
 		Short: "Open the site in the browser",
 		Long: `Opens the project's address in your browser, and prints it. A project whose services have
@@ -37,7 +37,6 @@ terminal, the address is only printed.`,
 			return runOpen(cmd, a, named)
 		},
 	}
-	return cmd
 }
 
 func runOpen(cmd *cobra.Command, a *app.App, named string) error {

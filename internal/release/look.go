@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/pethost-dev/cli/internal/kept"
 )
 
 // A Look is what the CLI remembers of looking for a newer release, between runs: a file
@@ -18,11 +20,7 @@ type Look struct {
 }
 
 func lookFile() (string, error) {
-	dir, err := os.UserConfigDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(dir, "pethost", "update.json"), nil
+	return kept.File("update.json")
 }
 
 // LastLook reads the memory; a zero Look when there is none.

@@ -104,7 +104,9 @@ func pathName(method, path string) string {
 func (r *requests) printLatest(answer *pethost.QueryHTTPTrafficResponse, titled bool, looked int, all bool) {
 	out := r.a.UI.Out
 	if len(answer.Requests) == 0 {
-		r.sayNone(answer, titled, looked, all)
+		if !titled {
+			r.sayNone(answer, looked, all)
+		}
 		return
 	}
 	if titled {
@@ -116,17 +118,12 @@ func (r *requests) printLatest(answer *pethost.QueryHTTPTrafficResponse, titled 
 	r.printer.page(latest)
 }
 
-// sayNone says that there is no request to list, on stderr: under the totals, which said so
-// already, nothing more.
-func (r *requests) sayNone(answer *pethost.QueryHTTPTrafficResponse, titled bool, looked int, all bool) {
-	said := ""
-	switch {
-	case titled:
-		return
-	case r.status.exact() && !all:
+// sayNone says that there is no request to list, on stderr. Under the totals, which said so
+// already, the caller skips it.
+func (r *requests) sayNone(answer *pethost.QueryHTTPTrafficResponse, looked int, all bool) {
+	said := "No requests" + r.filterWords() + " " + r.since.words(r.a.UI.Err, answer.EndTime.Sub(answer.StartTime))
+	if r.status.exact() && !all {
 		said = fmt.Sprintf("None of the newest %d requests that answered %dxx answered %d", looked, r.status.class, r.status.code)
-	default:
-		said = "No requests" + r.filterWords() + " " + r.since.words(r.a.UI.Err, answer.EndTime.Sub(answer.StartTime))
 	}
 	if r.flags.follow {
 		said += ": new ones show here. Ctrl-C leaves"
@@ -182,7 +179,8 @@ func (p *requestPrinter) row(request pethost.HTTPRequest) {
 	}
 
 	// A request that came alone keeps the columns as they are.
-	p.path, name = max(p.path, usualPath), clip(name, longestPath)
+	p.path = max(p.path, usualPath)
+	name = clip(name, longestPath)
 	fmt.Fprintf(out, "%s  %s  %s  %s  %s  %s\n",
 		out.Dim(out.Clock(request.FinishTime)),
 		statusCell(out, request.StatusCode),

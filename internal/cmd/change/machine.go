@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/pethost-dev/cli/internal/app"
+	"github.com/pethost-dev/cli/internal/say"
 	"github.com/pethost-dev/cli/internal/ui"
 )
 
@@ -67,7 +68,7 @@ func printResources(a *app.App, machine *pethost.Machine) {
 	table := out.Table()
 
 	table.Row("Plan", planWords(out, machine))
-	table.Row("CPU", fmt.Sprintf("%s of %s cores in use", cores(machine.CPUUsedCores), cores(machine.CPUTotalCores)))
+	table.Row("CPU", fmt.Sprintf("%s of %s cores in use", say.Cores(machine.CPUUsedCores), say.Cores(machine.CPUTotalCores)))
 	table.Row("Memory", ui.SizeOf(machine.MemoryUsedBytes, machine.MemoryTotalBytes)+" in use")
 	table.Row("Disk", ui.SizeOf(machine.DiskUsedBytes, machine.DiskTotalBytes)+" in use")
 	if shares := diskShares(machine.DiskUsage); shares != "" {
@@ -78,8 +79,10 @@ func printResources(a *app.App, machine *pethost.Machine) {
 	}
 	table.Row("Name", ui.Clean(machine.Hostname)+aside(out, "what a domain of your own points at"))
 	table.Row("Host key", ui.Clean(machine.SSHHostKeyFingerprint))
-	for i, words := range backupWords(out, machine) {
-		table.Row([]string{"Backups", ""}[min(i, 1)], words)
+	label := "Backups"
+	for _, words := range backupWords(out, machine) {
+		table.Row(label, words)
+		label = ""
 	}
 	table.Row("Software", softwareWords(out, machine))
 	table.Flush()
@@ -106,11 +109,6 @@ func planWords(out *ui.Stream, machine *pethost.Machine) string {
 		plan += " · " + ui.Clean(machine.Location)
 	}
 	return plan
-}
-
-// cores is a number of CPU cores: "2", "0.3".
-func cores(count float64) string {
-	return strings.TrimSuffix(fmt.Sprintf("%.1f", count), ".0")
 }
 
 // diskShares say where the projects' disk goes, as the machine measures it every few minutes.
