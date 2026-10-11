@@ -80,11 +80,8 @@ func printMachineLine(a *app.App, machine *pethost.Machine) {
 	)
 	fmt.Fprintln(out, strings.Join(parts, " · "))
 
-	switch {
-	case !machine.ScheduledRestartTime.IsZero():
+	if !machine.ScheduledRestartTime.IsZero() {
 		fmt.Fprintf(out, "%sThe machine restarts %s.\n", out.Tilde(), out.When(machine.ScheduledRestartTime))
-	case !machine.RestartRequiredTime.IsZero():
-		fmt.Fprintf(out, "%sAn update waits for a restart of the machine:  pethost machine restart\n", out.Tilde())
 	}
 }
 

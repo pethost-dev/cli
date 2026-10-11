@@ -87,11 +87,8 @@ func printResources(a *app.App, machine *pethost.Machine) {
 	table.Row("Software", softwareWords(out, machine))
 	table.Flush()
 
-	switch {
-	case !machine.ScheduledRestartTime.IsZero():
+	if !machine.ScheduledRestartTime.IsZero() {
 		fmt.Fprintf(out, "%sIt restarts %s. No restart after all:  pethost machine restart --cancel\n", out.Tilde(), out.When(machine.ScheduledRestartTime))
-	case !machine.RestartRequiredTime.IsZero():
-		fmt.Fprintf(out, "%sAn update waits for a restart since %s:  pethost machine restart\n", out.Tilde(), out.When(machine.RestartRequiredTime))
 	}
 }
 
