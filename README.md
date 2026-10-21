@@ -1,9 +1,10 @@
 # pethost: put a folder online from your terminal
 
-`pethost` is the command line of [Pethost](https://pethost.dev), your own cloud for everything
-you build, easy for you and your agent. One flat price rents a machine of your own, and
-it runs anything Docker runs. With `pethost` you put a folder online with one command, and see
-and change what runs there: logs, requests, a shell, secrets, a domain, a rollback.
+`pethost` is the command line of [Pethost](https://pethost.dev), the agent-first cloud for
+everything you build: your agent deploys and debugs your apps, and you see all of it in a
+simple panel. One flat price rents a machine of your own, and it runs anything Docker runs.
+With `pethost` you put a folder online with one command, and see and change what runs there:
+logs, requests, a shell, secrets, a domain, a rollback.
 
 ```sh
 curl -fsSL https://pethost.dev/install.sh | sh                 # macOS, Linux
