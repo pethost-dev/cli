@@ -1,7 +1,9 @@
 package detect
 
 import (
+	"cmp"
 	"io/fs"
+	"maps"
 	"path"
 	"slices"
 	"strings"
@@ -60,16 +62,12 @@ const namedDockerfiles = 3
 // keptElsewhere is the finding of a folder whose project has Dockerfiles of its own that the
 // machine does not read: pethost writes none beside them.
 func keptElsewhere(finding Finding, dockerfiles []string) Finding {
-	project := finding.Project
-	if project == "" {
-		project = "Docker project"
-	}
 	named := strings.Join(dockerfiles[:min(len(dockerfiles), namedDockerfiles)], ", ")
 	if len(dockerfiles) > namedDockerfiles {
 		named += " and others"
 	}
 	return Finding{
-		Project:  project,
+		Project:  cmp.Or(finding.Project, "Docker project"),
 		Evidence: append(slices.Clone(finding.Evidence), "it has a Dockerfile of its own ("+named+")"),
 		Leaves: "The project keeps a Dockerfile of its own where the machine does not read it (" + named + "), so pethost writes none beside it. " +
 			"Where that one builds and runs the project, a compose.yaml at the folder's root that builds from it puts it online; " +
@@ -105,16 +103,10 @@ var (
 // it is the container itself there: the deploy succeeds, and every page that reads a row fails.
 func databaseHere(f *Folder) string {
 	env := f.Env(".env")
-	names := make([]string, 0, len(env))
-	for name := range env {
-		names = append(names, name)
-	}
-	slices.Sort(names)
-
 	has := func(text string, parts []string) bool {
 		return slices.ContainsFunc(parts, func(part string) bool { return strings.Contains(text, part) })
 	}
-	for _, name := range names {
+	for _, name := range slices.Sorted(maps.Keys(env)) {
 		if has(strings.ToUpper(name), databaseNames) && has(env[name], thisComputer) {
 			return name
 		}

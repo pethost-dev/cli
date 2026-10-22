@@ -242,8 +242,8 @@ func (d *deploy) sourceFromHere() {
 		return
 	}
 
-	here, err := target.FindFile(".")
-	if err == nil && here != nil && here.ProjectID == d.project.ID {
+	here, _ := target.FindFile(".")
+	if here != nil && here.ProjectID == d.project.ID {
 		d.project.Source = target.FromFile
 		return
 	}

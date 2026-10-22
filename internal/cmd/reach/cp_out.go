@@ -49,8 +49,9 @@ func (c *copying) out(ctx context.Context, from place, to string) error {
 	defer response.Body.Close()
 	c.a.Debugf("download from the machine  %s  %s", time.Since(c.started).Round(time.Millisecond), response.Status)
 
-	stop := c.follow(ui.Clean(savedName(ticket)), response.ContentLength)
-	saved, err := c.save(response.Body, to, savedName(ticket))
+	name := savedName(ticket)
+	stop := c.follow(ui.Clean(name), response.ContentLength)
+	saved, err := c.save(response.Body, to, name)
 	stop()
 	if err != nil {
 		return err

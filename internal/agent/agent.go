@@ -121,7 +121,7 @@ func (a Agent) Run(ctx context.Context, dir, task string) (said string, err erro
 		return strings.HasPrefix(variable, "PETHOST_TOKEN=")
 	})
 	command.WaitDelay = leftAlone
-	answer, complaints := &tail{limit: saidLimit}, &tail{limit: saidLimit}
+	answer, complaints := &tail{}, &tail{}
 	command.Stdout, command.Stderr = answer, complaints
 
 	if err := command.Run(); err != nil {
@@ -144,15 +144,14 @@ func lastLine(texts ...string) string {
 	return "it said nothing"
 }
 
-// A tail keeps the end of what is written to it.
+// A tail keeps the end of what is written to it, saidLimit at most.
 type tail struct {
-	limit int
-	kept  bytes.Buffer
+	kept bytes.Buffer
 }
 
 func (t *tail) Write(p []byte) (int, error) {
 	t.kept.Write(p)
-	if over := t.kept.Len() - t.limit; over > 0 {
+	if over := t.kept.Len() - saidLimit; over > 0 {
 		t.kept.Next(over)
 	}
 	return len(p), nil
@@ -176,13 +175,19 @@ func ChoiceFile() string {
 	return path
 }
 
+// remembered is the program of the person's choice; empty = none is kept.
 func remembered() string {
-	var chosen choice
-	if path, err := choiceFile(); err == nil {
-		if data, err := os.ReadFile(path); err == nil {
-			json.Unmarshal(data, &chosen)
-		}
+	path, err := choiceFile()
+	if err != nil {
+		return ""
 	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+
+	var chosen choice
+	json.Unmarshal(data, &chosen)
 	return chosen.Program
 }
 
@@ -192,10 +197,7 @@ func (a Agent) Remember() error {
 	if err != nil {
 		return err
 	}
-	data, err := json.Marshal(choice{Program: a.Program})
-	if err != nil {
-		return err
-	}
+	data, _ := json.Marshal(choice{Program: a.Program})
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
 	}

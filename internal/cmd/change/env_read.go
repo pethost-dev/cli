@@ -74,8 +74,12 @@ func readers(project *pethost.Project, name string) (services []string, known bo
 	for _, service := range project.Services {
 		reads := false
 		for _, variable := range service.Environment {
-			reads = reads || (variable.Name == name && variable.SourceFile == envPath) || slices.Contains(variable.FromEnvFileVariables, name)
-			known = known && !(variable.Name == name && variable.SourceFile == "")
+			if (variable.Name == name && variable.SourceFile == envPath) || slices.Contains(variable.FromEnvFileVariables, name) {
+				reads = true
+			}
+			if variable.Name == name && variable.SourceFile == "" {
+				known = false
+			}
 		}
 		if reads {
 			services = append(services, service.Service)

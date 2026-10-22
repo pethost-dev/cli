@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"slices"
 	"strings"
 
 	pethost "github.com/pethost-dev/sdk/go"
@@ -155,8 +154,8 @@ func refusedRun(ctx context.Context, a *app.App, client *pethost.Client, project
 		return refusal
 	}
 
-	at := slices.IndexFunc(answer.Project.Services, func(candidate pethost.Service) bool { return candidate.Service == service })
-	if at < 0 || answer.Project.Services[at].ContainerRunning {
+	listed := serviceOf(answer.Project, service)
+	if listed == nil || listed.ContainerRunning {
 		return refusal
 	}
 	e := fail.From(refusal)
@@ -208,7 +207,7 @@ func showRun(a *app.App, project target.Project, service string, answer *pethost
 		return &fail.Error{Exit: exitTimedOut, Code: commandEnded, Shown: true,
 			Message: "The machine stopped the command at its timeout."}
 	case answer.ExitCode != 0:
-		return &fail.Error{Exit: exitCodeOf(answer.ExitCode), Code: commandEnded, Shown: true,
+		return &fail.Error{Exit: exitCodeOf(int(answer.ExitCode)), Code: commandEnded, Shown: true,
 			Message: fmt.Sprintf("The command exited with code %d.", answer.ExitCode)}
 	}
 	return nil
@@ -237,9 +236,9 @@ func sayCut(a *app.App, project target.Project, service string, answer *pethost.
 
 // exitCodeOf is a command's exit code as this process can exit with it: one byte, and never 0
 // for a command that did not exit with 0.
-func exitCodeOf(code int32) int {
+func exitCodeOf(code int) int {
 	if code < 0 || code > 255 {
 		return 255
 	}
-	return int(code)
+	return code
 }

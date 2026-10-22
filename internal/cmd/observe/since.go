@@ -1,7 +1,9 @@
 package observe
 
 import (
+	"errors"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -51,13 +53,26 @@ func lengthOf(value string) (time.Duration, bool) {
 	var length time.Duration
 	var err error
 	if days, isDays := strings.CutSuffix(value, "d"); isDays {
-		var count float64
-		count, err = strconv.ParseFloat(days, 64)
-		length = time.Duration(count * 24 * float64(time.Hour))
+		length, err = inDays(days)
 	} else {
 		length, err = time.ParseDuration(value)
 	}
 	return length, err == nil && length >= time.Second
+}
+
+// inDays reads a count of days ("2", "0.5"). One longer than a Duration holds is refused, as
+// time.ParseDuration refuses such a length: a float beyond int64 converts to what the processor
+// makes of it, which differs between amd64 and arm64.
+func inDays(count string) (time.Duration, error) {
+	days, err := strconv.ParseFloat(count, 64)
+	if err != nil {
+		return 0, err
+	}
+	nanoseconds := days * float64(24*time.Hour)
+	if !(math.Abs(nanoseconds) < math.MaxInt64) { // NaN and ±Inf too
+		return 0, errors.New("longer than a Duration holds")
+	}
+	return time.Duration(nanoseconds), nil
 }
 
 // given says whether the flag was.

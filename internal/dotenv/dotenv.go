@@ -1,17 +1,18 @@
-package change
+// Package dotenv is a .env file as text, in Docker Compose's format (NAME=value, quotes,
+// comments, `export`): it finds the statements as Compose does, reads the value each gives as
+// Compose does, and writes a value so that Compose reads exactly it back. The API takes the
+// project's /.env whole, so a change to one variable is an edit of the text: that variable's
+// statement is written anew, and every other byte of the file stays as it is. Whether a file is
+// a good one is the machine's to say, when it deploys it.
+package dotenv
 
 import (
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"unicode"
 )
-
-// A .env file as text. The API takes the project's /.env whole, so a change to one variable is
-// an edit of the text: that variable's statement is written anew, and every other byte of the
-// file stays as it is. The format is Docker Compose's (NAME=value, quotes, comments, `export`):
-// this file finds the statements as Compose does, and writes a value so that Compose reads
-// exactly it back. Whether a file is a good one is the machine's to say, when it deploys it.
 
 // An assignment is one variable's statement in a .env text.
 type assignment struct {
@@ -19,6 +20,9 @@ type assignment struct {
 	// text[start:end] is the statement from its name to the end of its value: what an edit
 	// replaces. An `export` before it and a comment after it are outside.
 	start, end int
+	// text[value:end] is the value as written, after the separator; -1 = the line holds the name
+	// alone, which sets nothing.
+	value int
 }
 
 var exportPrefix = regexp.MustCompile(`^export\s+`)
@@ -37,17 +41,18 @@ func assignments(text string) []assignment {
 		}
 		at += len(exportPrefix.FindString(text[at:]))
 
-		// A name ends at its separator; a line that holds a name alone sets nothing here.
+		// A name ends at its separator.
 		nameEnd := at + len(text[at:])
 		if i := strings.IndexAny(text[at:], "=:\n"); i >= 0 {
 			nameEnd = at + i
 		}
-		end := nameEnd
+		end, value := nameEnd, -1
 		if nameEnd < len(text) && text[nameEnd] != '\n' {
-			end = valueEnd(text, nameEnd+1)
+			value = nameEnd + 1
+			end = valueEnd(text, value)
 		}
 
-		found = append(found, assignment{name: strings.TrimRightFunc(text[at:nameEnd], unicode.IsSpace), start: at, end: end})
+		found = append(found, assignment{name: strings.TrimRightFunc(text[at:nameEnd], unicode.IsSpace), start: at, end: end, value: value})
 		at = max(end, at+1)
 	}
 	return found
@@ -56,9 +61,10 @@ func assignments(text string) []assignment {
 // valueEnd is where the value that starts at or after from ends: a quoted one after its closing
 // quote, which may be lines below; a bare one at its line's end, or before the comment on it.
 func valueEnd(text string, from int) int {
-	from += len(text[from:]) - len(strings.TrimLeft(text[from:], " \t"))
+	from = valueStart(text, from)
 	if from < len(text) && (text[from] == '"' || text[from] == '\'') {
-		return quoteEnd(text, from)
+		end, _ := quoted(text, from)
+		return end
 	}
 
 	line := text[from:lineEnd(text, from)]
@@ -68,21 +74,34 @@ func valueEnd(text string, from int) int {
 	return from + len(strings.TrimRight(line, " \t\r"))
 }
 
-// quoteEnd is the index after the quote that closes the one at text[open]. A backslash takes
-// the character after it out of play; a quote never closed runs to the text's end.
-func quoteEnd(text string, open int) int {
+// valueStart is where a value written from on begins, past the spaces before it.
+func valueStart(text string, from int) int {
+	return from + len(text[from:]) - len(strings.TrimLeft(text[from:], " \t"))
+}
+
+// quoted reads the quotes that open at text[open]: the index after the quote that closes them,
+// and what they hold. A backslash takes the character after it out of play, and is left out
+// before the quote it escapes; a quote never closed runs to the text's end.
+func quoted(text string, open int) (end int, held string) {
+	var chars strings.Builder
 	escaped := false
 	for i := open + 1; i < len(text); i++ {
-		switch {
+		switch c := text[i]; {
 		case escaped:
 			escaped = false
-		case text[i] == '\\':
+			if c != text[open] {
+				chars.WriteByte('\\')
+			}
+			chars.WriteByte(c)
+		case c == '\\':
 			escaped = true
-		case text[i] == text[open]:
-			return i + 1
+		case c == text[open]:
+			return i + 1, chars.String()
+		default:
+			chars.WriteByte(c)
 		}
 	}
-	return len(text)
+	return len(text), chars.String()
 }
 
 // lineEnd is the index of the line break that ends the line at holds, or the text's end.
@@ -93,8 +112,41 @@ func lineEnd(text string, at int) int {
 	return len(text)
 }
 
-// variableNames are the names a .env text sets, each once, in the text's order.
-func variableNames(text string) []string {
+// valueOf is the value a statement gives: a bare one as it stands, a quoted one without its
+// quotes, and in double quotes with the escapes read (\n, \t, \", \\, \$ …). A variable that a
+// value names ($NAME, ${NAME}) is left as written: Compose puts the value of that name in its
+// place.
+func (s assignment) valueOf(text string) string {
+	from := valueStart(text, s.value)
+	if from == s.end || (text[from] != '"' && text[from] != '\'') {
+		return text[from:s.end]
+	}
+	_, held := quoted(text, from)
+	if text[from] == '\'' {
+		return held
+	}
+	return escapeSequence.ReplaceAllStringFunc(held, unescaped)
+}
+
+// escapeSequence is an escape that Compose reads in double quotes.
+var escapeSequence = regexp.MustCompile(`\\(?:[abcfnrtv$"\\]|0\d{0,3})`)
+
+// unescaped is the character an escape stands for, as Go reads it in a string literal, and
+// "\0" before an octal number; one that Go does not read stays as written.
+func unescaped(sequence string) string {
+	if sequence == `\$` {
+		return "$"
+	}
+	sequence = strings.Replace(sequence, `\0`, `\`, 1)
+	char, _, _, err := strconv.UnquoteChar(sequence, '"')
+	if err != nil {
+		return sequence
+	}
+	return string(char)
+}
+
+// Names are the names a .env text sets, each once, in the text's order.
+func Names(text string) []string {
 	var names []string
 	for _, statement := range assignments(text) {
 		if !slices.Contains(names, statement.name) {
@@ -104,9 +156,21 @@ func variableNames(text string) []string {
 	return names
 }
 
-// statementOf is name's statement as the text writes it, the last one, which is the one that
+// Values are the variables a .env text sets and the value of each, as Compose reads them: a
+// name's last statement is the one that counts.
+func Values(text string) map[string]string {
+	values := map[string]string{}
+	for _, statement := range assignments(text) {
+		if statement.value >= 0 {
+			values[statement.name] = statement.valueOf(text)
+		}
+	}
+	return values
+}
+
+// Statement is name's statement as the text writes it, the last one, which is the one that
 // counts; false = the text does not set it.
-func statementOf(text, name string) (string, bool) {
+func Statement(text, name string) (string, bool) {
 	all := assignments(text)
 	for i := len(all) - 1; i >= 0; i-- {
 		if all[i].name == name {
@@ -116,9 +180,9 @@ func statementOf(text, name string) (string, bool) {
 	return "", false
 }
 
-// withVariable is the text with name set to value: its last statement, the one that counts,
-// written anew in place, or a new last line.
-func withVariable(text, name, value string) string {
+// With is the text with name set to value: its last statement, the one that counts, written
+// anew in place, or a new last line.
+func With(text, name, value string) string {
 	statement := name + "=" + encoded(value)
 
 	all := assignments(text)
@@ -139,9 +203,9 @@ func withVariable(text, name, value string) string {
 	return text + statement + "\n"
 }
 
-// withoutVariable is the text without name's statements. A statement goes with its whole line
-// (an `export` before it, a comment after it) unless the line holds another statement too.
-func withoutVariable(text, name string) string {
+// Without is the text without name's statements. A statement goes with its whole line (an
+// `export` before it, a comment after it) unless the line holds another statement too.
+func Without(text, name string) string {
 	all := assignments(text)
 	for i := len(all) - 1; i >= 0; i-- {
 		if all[i].name != name {

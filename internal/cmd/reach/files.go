@@ -152,7 +152,7 @@ func (f *files) list(ctx context.Context, first *pethost.ReadPathResponse) error
 		}
 		return nil
 	})
-	if err != nil && err != errEnough {
+	if err != nil && !errors.Is(err, errEnough) {
 		return err
 	}
 	table.Flush()

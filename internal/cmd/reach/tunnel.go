@@ -108,7 +108,7 @@ func (t *tunnel) commandFor(service string, port uint32) string {
 // not have ends it here: the machine's gateway would take the login and refuse each connection
 // later, behind a line that said the tunnel was open.
 func (t *tunnel) portOf(f facts, named uint32) (uint32, error) {
-	service := f.service(t.service)
+	service := serviceOf(f.project, t.service)
 	if service == nil {
 		return 0, fail.Failed("%s has no service %s. It has: %s.", ui.Clean(f.project.ProjectID), ui.Clean(t.service),
 			ui.Clean(strings.Join(target.ServiceNames(f.project), ", ")))
@@ -207,7 +207,7 @@ func (t *tunnel) say(f facts, opened, asked int) error {
 		aside = fmt.Sprintf(" (%d is not free here)", t.port)
 	}
 	a.UI.Done("localhost:%d → %s:%d on your machine%s. Ctrl-C closes it.", opened, ui.Clean(t.service), t.port, aside)
-	if service := f.service(t.service); service != nil && !service.ContainerRunning {
+	if service := serviceOf(f.project, t.service); service != nil && !service.ContainerRunning {
 		a.UI.Info("  %s is %s now: the machine refuses connections to it until it runs.", ui.Clean(t.service), say.State(service.State))
 	}
 

@@ -2,6 +2,7 @@ package change
 
 import (
 	"context"
+	"slices"
 
 	pethost "github.com/pethost-dev/sdk/go"
 	"github.com/spf13/cobra"
@@ -113,12 +114,11 @@ func recreate(ctx context.Context, a *app.App, project target.Project, noQueue b
 // recreated says what a recreation did, by whether the machine builds the service's image.
 func recreated(project *pethost.Project, service string) string {
 	name := ui.Clean(service)
-	if project != nil {
-		for _, candidate := range project.Services {
-			if candidate.Service == service && candidate.BuildsImage {
-				return name + " was built again on the newest base images and runs in a new container"
-			}
-		}
+	builds := project != nil && slices.ContainsFunc(project.Services, func(candidate pethost.Service) bool {
+		return candidate.Service == service && candidate.BuildsImage
+	})
+	if builds {
+		return name + " was built again on the newest base images and runs in a new container"
 	}
 	return name + " runs in a new container, on the newest image of its tag"
 }

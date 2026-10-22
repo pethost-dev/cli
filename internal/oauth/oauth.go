@@ -8,6 +8,7 @@
 package oauth
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -90,7 +91,7 @@ func (s *Server) Register(ctx context.Context, name string) (clientID string, er
 	if err != nil {
 		return "", err
 	}
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, s.RegistrationEndpoint, strings.NewReader(string(asked)))
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, s.RegistrationEndpoint, bytes.NewReader(asked))
 	if err != nil {
 		return "", err
 	}

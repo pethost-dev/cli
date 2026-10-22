@@ -68,16 +68,20 @@ func (d *domainAdd) run(ctx context.Context) error {
 	var before *pethost.Project
 	var done *outcome
 	err := againIfChanged(func() error {
-		var err error
-		before, err = d.read(ctx)
+		// The project's routes are what the change is made of; the machine's name is what a DNS
+		// record points at.
+		machine, answer, err := d.a.MachineAndProject(ctx, d.project.ID)
 		if err != nil {
 			return err
 		}
+		d.machine = machine
+		before = answer.Project
 
-		route, err = d.route(before)
+		to, err := d.leadsTo(before)
 		if err != nil {
 			return err
 		}
+		route = pethost.Route{Host: d.host, Service: to.service, Port: to.port}
 
 		routes, changed := withRoute(before.Routes, route)
 		if !changed {
@@ -104,40 +108,6 @@ func (d *domainAdd) run(ctx context.Context) error {
 	done.Notes(d.a)
 	done.Problems(d.a)
 	return d.sayHost(done.Project, route)
-}
-
-// read asks at once for the project, whose routes the change is made of, and for the machine,
-// whose name a DNS record points at.
-func (d *domainAdd) read(ctx context.Context) (*pethost.Project, error) {
-	client, err := d.a.Client()
-	if err != nil {
-		return nil, err
-	}
-
-	var answer *pethost.GetProjectResponse
-	err = app.Together(
-		func() (err error) {
-			answer, err = client.GetProject(ctx, &pethost.GetProjectRequest{ProjectID: d.project.ID})
-			return err
-		},
-		func() (err error) {
-			d.machine, err = client.GetMachine(ctx, nil)
-			return err
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
-	return answer.Project, nil
-}
-
-// route is the route to add: the host, and where it leads.
-func (d *domainAdd) route(project *pethost.Project) (pethost.Route, error) {
-	to, err := d.leadsTo(project)
-	if err != nil {
-		return pethost.Route{}, err
-	}
-	return pethost.Route{Host: d.host, Service: to.service, Port: to.port}, nil
 }
 
 // A listener is a service's port.
@@ -188,7 +158,8 @@ func (d *domainAdd) candidates(project *pethost.Project) ([]listener, error) {
 		return d.typed(project)
 	}
 
-	if own := d.ownRoute(project); own != nil {
+	if at := everyPathRoute(project.Routes, d.host); at >= 0 {
+		own := project.Routes[at]
 		return []listener{{service: own.Service, port: own.Port}}, nil
 	}
 
@@ -221,15 +192,6 @@ func (d *domainAdd) typed(project *pethost.Project) ([]listener, error) {
 		return nil, fail.Usage("pethost domain add: "+ui.Clean(d.to)+" is not service:port", d.usage)
 	}
 	return []listener{{service: service, port: uint32(number)}}, nil
-}
-
-// ownRoute is the route the host already has for every path; nil = none.
-func (d *domainAdd) ownRoute(project *pethost.Project) *pethost.Route {
-	at := slices.IndexFunc(project.Routes, func(route pethost.Route) bool { return sameHost(route, d.host) && everyPath(route) })
-	if at < 0 {
-		return nil
-	}
-	return &project.Routes[at]
 }
 
 // command is this command with where the address leads, a word as a shell takes it.
@@ -280,11 +242,16 @@ func everyPath(route pethost.Route) bool {
 	return route.Path == "" || route.Path == "/"
 }
 
+// everyPathRoute is the index of the host's route for every path; -1 = none.
+func everyPathRoute(routes []pethost.Route, host string) int {
+	return slices.IndexFunc(routes, func(route pethost.Route) bool { return sameHost(route, host) && everyPath(route) })
+}
+
 // withRoute is the project's routes as they are plus the new one. A host that already has a
 // route for every path gets it changed in place; false = it already leads there.
 func withRoute(routes []pethost.Route, added pethost.Route) ([]pethost.Route, bool) {
 	routes = slices.Clone(routes)
-	at := slices.IndexFunc(routes, func(route pethost.Route) bool { return sameHost(route, added.Host) && everyPath(route) })
+	at := everyPathRoute(routes, added.Host)
 	if at < 0 {
 		return append(routes, added), true
 	}
@@ -326,7 +293,7 @@ func (d *domainAdd) sayHost(project *pethost.Project, route pethost.Route) error
 // sayRecord prints the DNS record a domain of the person's own needs: a CNAME to the machine's
 // name, or at a domain's apex, where no CNAME can be, an ALIAS to it.
 func (d *domainAdd) sayRecord(host pethost.Host) {
-	if d.machine == nil || d.machine.Machine == nil {
+	if d.machine.Machine == nil {
 		return
 	}
 	screen := d.a.UI

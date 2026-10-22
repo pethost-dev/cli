@@ -37,11 +37,11 @@ func readFacts(ctx context.Context, a *app.App, project target.Project) (facts, 
 	return facts{machine: machine.Machine, project: answer.Project}, nil
 }
 
-// service is the project's service of that name; nil = it has none.
-func (f facts) service(name string) *pethost.Service {
-	for i := range f.project.Services {
-		if f.project.Services[i].Service == name {
-			return &f.project.Services[i]
+// serviceOf is the project's service of that name; nil = it has none.
+func serviceOf(project *pethost.Project, name string) *pethost.Service {
+	for i := range project.Services {
+		if project.Services[i].Service == name {
+			return &project.Services[i]
 		}
 	}
 	return nil

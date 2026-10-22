@@ -1,6 +1,7 @@
 package detect
 
 import (
+	"cmp"
 	"fmt"
 	"path"
 	"regexp"
@@ -264,9 +265,7 @@ func (n *node) install(f *Folder, p *plan) *Finding {
 	if name == "yarn" && (f.Has(".yarnrc.yml") || strings.Contains(f.Text("yarn.lock"), "__metadata:")) {
 		// A Yarn later than 1, which Corepack brings: the one package.json names, or the newest.
 		brings, manager.cache = "npm install -g --force corepack && corepack enable && corepack prepare yarn%s --activate", ""
-		if release == "" {
-			release = "stable"
-		}
+		release = cmp.Or(release, "stable")
 	}
 	if release != "" {
 		release = "@" + release
@@ -330,14 +329,19 @@ func nodeImage(f *Folder) (image, why string) {
 
 // withAssets adds to another stack's plan what builds its pages' assets, where the folder's
 // package.json has a build script: Node beside the image's own language, the install, the
-// build.
+// build. Node is copied as its image has it, Yarn 1 included, which the image keeps in /opt
+// (managers counts on it).
 func withAssets(f *Folder, p *plan) *Finding {
 	n := &node{}
 	if !f.JSON("package.json", n) || n.Scripts["build"] == "" {
 		return nil
 	}
 	image, _ := nodeImage(f)
-	p.setup = append(p.setup, step{line: "COPY --from=" + image + " /usr/local /usr/local", why: "Node, which builds the pages' assets."})
+	from := "COPY --from=" + image
+	p.setup = append(p.setup, step{
+		line: from + " /usr/local /usr/local\n" + from + " /opt /opt",
+		why:  "Node, which builds the pages' assets, and the Yarn 1 its image keeps in /opt.",
+	})
 	p.evidence = append(p.evidence, fmt.Sprintf("package.json builds the assets with %q", n.Scripts["build"]))
 	if stop := n.install(f, p); stop != nil {
 		return stop

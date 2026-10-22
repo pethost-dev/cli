@@ -8,7 +8,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/pethost-dev/cli/internal/app"
-	"github.com/pethost-dev/cli/internal/fail"
 	"github.com/pethost-dev/cli/internal/target"
 )
 
@@ -157,13 +156,4 @@ func (l *logs) sayNothing() {
 		said += ": new ones show here. Ctrl-C leaves"
 	}
 	l.a.UI.Info("%s.", said)
-}
-
-// noLogOptions refuses, for --deploy, what only container output takes.
-func noLogOptions(cmd *cobra.Command, flags logFlags) error {
-	if flags.service == "" && flags.since == "" && flags.grep == "" && flags.lines == 0 {
-		return nil
-	}
-	message := cmd.CommandPath() + ": --deploy is the deploy's whole log: it takes no service, --since, --grep or -n"
-	return fail.Usage(message, cmd.UseLine())
 }

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"cmp"
 	"context"
 	"sync"
 
@@ -18,12 +19,7 @@ func Together(calls ...func() error) error {
 	}
 	group.Wait()
 
-	for _, err := range errs {
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	return cmp.Or(errs...)
 }
 
 // MachineAndProject asks for the machine and for one project at once.

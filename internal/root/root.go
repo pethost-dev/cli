@@ -5,12 +5,14 @@ package root
 
 import (
 	"context"
+	"io"
 	"os"
 	"os/signal"
 	"slices"
 	"syscall"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/pethost-dev/cli/internal/app"
 	"github.com/pethost-dev/cli/internal/cmd/account"
@@ -47,19 +49,20 @@ func Run(stamped string) int {
 	return code
 }
 
-// asksForJSON says whether the command line has --json, read from the words themselves: a
-// command line that is wrong, as one with a flag that does not exist, fails before its flags
-// are read, and a program that asked for JSON is owed its error as JSON all the same.
+// asksForJSON says whether the command line has --json, read by pflag from the words alone, as
+// the command's own flags read it: a command line that is wrong, as one with a flag that does
+// not exist, fails before its flags are read, and a program that asked for JSON is owed its
+// error as JSON all the same. What follows "--" is a command for a container, not this
+// program's: pflag reads no flag there.
 func asksForJSON(args []string) bool {
-	for _, arg := range args {
-		switch arg {
-		case "--": // What follows is a command for a container, not this program's.
-			return false
-		case "--json", "--json=true":
-			return true
-		}
-	}
-	return false
+	flags := pflag.NewFlagSet("", pflag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	flags.ParseErrorsAllowlist.UnknownFlags = true
+	asked := flags.Bool("json", false, "")
+	// Help is a flag of every command, and pflag would end the reading at it.
+	flags.BoolP("help", "h", false, "")
+	_ = flags.Parse(args)
+	return *asked
 }
 
 // endingSignals are the signals that end a command in its own way, so that it leaves the
@@ -126,11 +129,10 @@ func tree(a *app.App) *cobra.Command {
 	_ = root.RegisterFlagCompletionFunc("project", target.CompleteProjects(a))
 
 	for _, commands := range [][]*cobra.Command{
-		kernel.Commands(a), observe.Commands(a), reach.Commands(a), change.Commands(a), account.Commands(a),
+		kernel.Commands(a), observe.Commands(a), reach.Commands(a), change.Commands(a), account.Commands(a), panelCommands(a),
 	} {
 		root.AddCommand(commands...)
 	}
-	root.AddCommand(panelCommands(a)...)
 
 	// The bare command is the status.
 	if status, _, err := root.Find([]string{"status"}); err == nil {

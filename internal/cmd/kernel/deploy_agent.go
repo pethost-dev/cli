@@ -191,3 +191,10 @@ func added(before, after []string) []string {
 	}
 	return names
 }
+
+func itOrThem(count int) string {
+	if count == 1 {
+		return "it"
+	}
+	return "them"
+}

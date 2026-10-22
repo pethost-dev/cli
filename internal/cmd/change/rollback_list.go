@@ -85,7 +85,7 @@ func brought(deploy pethost.Operation) string {
 	}
 	if len(deploy.ChangedPaths) > 0 {
 		changed := "changed " + listed(deploy.ChangedPaths)
-		if more := int(deploy.ChangedPathCount) - len(deploy.ChangedPaths); more > 0 {
+		if int(deploy.ChangedPathCount) > len(deploy.ChangedPaths) {
 			changed += fmt.Sprintf(" (%d paths in all)", deploy.ChangedPathCount)
 		}
 		parts = append(parts, changed)

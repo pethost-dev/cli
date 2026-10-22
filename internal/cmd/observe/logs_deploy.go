@@ -60,6 +60,15 @@ func runDeployLog(cmd *cobra.Command, a *app.App, flags logFlags) error {
 	return d.print()
 }
 
+// noLogOptions refuses, for --deploy, what only container output takes.
+func noLogOptions(cmd *cobra.Command, flags logFlags) error {
+	if flags.service == "" && flags.since == "" && flags.grep == "" && flags.lines == 0 {
+		return nil
+	}
+	message := cmd.CommandPath() + ": --deploy is the deploy's whole log: it takes no service, --since, --grep or -n"
+	return fail.Usage(message, cmd.UseLine())
+}
+
 // newestDeploy is the deploy whose log says how the project's code came to run: the newest
 // deploy, or a service's recreation, which the CLI's own hints also send here. A deploy that
 // succeeded without sending files is passed over: it changed the address, the name or the

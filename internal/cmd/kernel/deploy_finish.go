@@ -3,6 +3,7 @@ package kernel
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	pethost "github.com/pethost-dev/sdk/go"
@@ -58,15 +59,9 @@ func (d *deploy) doneWords(result *operation.Result) string {
 
 // buildsAnImage says whether a service of the project runs an image the machine builds.
 func buildsAnImage(project *pethost.Project) bool {
-	if project == nil {
-		return false
-	}
-	for _, service := range project.Services {
-		if service.BuildsImage {
-			return true
-		}
-	}
-	return false
+	return project != nil && slices.ContainsFunc(project.Services, func(service pethost.Service) bool {
+		return service.BuildsImage
+	})
 }
 
 // afterFailure says, under a first deploy that failed, that the project exists all the same.

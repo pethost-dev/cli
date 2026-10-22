@@ -65,7 +65,8 @@ func (w *why) lookNear() error {
 	}
 	for i, path := range failing {
 		seen := &w.paths[i]
-		seen.path, seen.last = path, w.lastFailure(path)
+		seen.path = path
+		seen.last = w.lastFailure(path)
 		calls = append(calls,
 			func() (err error) {
 				seen.all, err = w.pathTotals(path)

@@ -173,7 +173,7 @@ func (s *Screen) Ask(label, fallback string, hint func(value string) string) (st
 		// The hint starts in its column, or nearer when the line would not hold it there.
 		gap := max(3, min(hintColumn-typed, width-1-typed-Width(said)))
 		line := cut(question+value+strings.Repeat(" ", gap)+s.Err.Dim(said), width)
-		s.write(fmt.Sprintf("\r\x1b[K%s\r\x1b[%dC", line, Width(question+value)))
+		s.write(fmt.Sprintf("\r\x1b[K%s\r\x1b[%dC", line, typed))
 	}
 
 	draw("")

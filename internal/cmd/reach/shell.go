@@ -67,7 +67,7 @@ The first use adds this computer's key to your machine: pethost machine lists th
 
 		err = openShell(ctx, a, conn)
 		if err != nil {
-			sayHowToStart(a, project, f.service(service))
+			sayHowToStart(a, project, serviceOf(f.project, service))
 		}
 		return err
 	}
@@ -110,7 +110,7 @@ func openShell(ctx context.Context, a *app.App, conn *remote.Conn) error {
 	case err != nil:
 		return err
 	case status != 0:
-		return &fail.Error{Exit: exitCodeOf(int32(min(status, exitSessionBroke))), Code: commandEnded, Shown: true,
+		return &fail.Error{Exit: exitCodeOf(status), Code: commandEnded, Shown: true,
 			Message: fmt.Sprintf("The shell exited with code %d.", status)}
 	}
 	return nil

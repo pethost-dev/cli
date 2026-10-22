@@ -27,7 +27,7 @@ func (d *deploy) send(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if err := d.upload(ctx, transfer, d.packed); err != nil {
+	if err := d.upload(ctx, transfer); err != nil {
 		return "", err
 	}
 
@@ -60,13 +60,13 @@ func (d *deploy) newTransfer(ctx context.Context) (*pethost.CreateTransferRespon
 }
 
 // upload sends the archive in one request, with a line that says how far it is.
-func (d *deploy) upload(ctx context.Context, ticket *pethost.CreateTransferResponse, found *contents) error {
+func (d *deploy) upload(ctx context.Context, ticket *pethost.CreateTransferResponse) error {
 	live := d.a.UI.Live("Packing and uploading…")
 	defer live.Stop()
 
 	var sent atomic.Uint64
 	stop := live.Follow(func() string {
-		return fmt.Sprintf("Packing and uploading… %s of %s", ui.Size(sent.Load()), ui.Size(found.bytes))
+		return fmt.Sprintf("Packing and uploading… %s of %s", ui.Size(sent.Load()), ui.Size(d.packed.bytes))
 	})
 	defer stop()
 
@@ -74,7 +74,7 @@ func (d *deploy) upload(ctx context.Context, ticket *pethost.CreateTransferRespo
 	body, packing := io.Pipe()
 	packed := make(chan error, 1)
 	go func() {
-		err := pack(packing, d.dir, found, &sent)
+		err := pack(packing, d.dir, d.packed, &sent)
 		packing.CloseWithError(err)
 		packed <- err
 	}()

@@ -168,10 +168,11 @@ func (p *requestPrinter) fit(request pethost.HTTPRequest) {
 	p.service = max(p.service, ui.Width(ui.Clean(request.Service)))
 }
 
-// row writes one request.
 func (p *requestPrinter) row(request pethost.HTTPRequest) {
 	out := p.out
-	name, took, service := pathName(request.Method, request.Path), ui.Millis(request.DurationMs), ui.Clean(request.Service)
+	name := pathName(request.Method, request.Path)
+	took := ui.Millis(request.DurationMs)
+	service := ui.Clean(request.Service)
 	if !out.Terminal {
 		cells := []string{out.Clock(request.FinishTime), strconv.FormatUint(uint64(request.StatusCode), 10), name, took, service, ui.Clean(request.ClientIPAddress)}
 		fmt.Fprintln(out, strings.Join(cells, "\t"))

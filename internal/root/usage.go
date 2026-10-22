@@ -68,26 +68,31 @@ func usageOf(cmd *cobra.Command) string {
 func strictArguments(cmd *cobra.Command) {
 	if check := cmd.Args; check != nil {
 		cmd.Args = func(cmd *cobra.Command, args []string) error {
-			err := check(cmd, args)
-			switch {
-			case err == nil:
-				return nil
-			case takesNone(cmd, check, args):
-				// The library calls a word after such a command an unknown command, which it is not.
-				return fail.Usage(fmt.Sprintf("%s takes no argument, and %q was given.", cmd.CommandPath(), args[0]), usageOf(cmd))
-			case cmd.HasSubCommands() && len(args) > 0 && check(cmd, args[:1]) != nil:
-				// A word after a noun that is neither a command of it nor an argument it takes.
-				return noSuchCommand(cmd, args)
+			if err := check(cmd, args); err != nil {
+				return wrongArguments(cmd, check, args, err)
 			}
-			if _, own := err.(*fail.Error); own {
-				return err
-			}
-			return fail.Usage(fmt.Sprintf("%s takes %s, and %s given.", cmd.CommandPath(), taken(cmd, check, len(args)), given(len(args))), usageOf(cmd))
+			return nil
 		}
 	}
 	for _, sub := range cmd.Commands() {
 		strictArguments(sub)
 	}
+}
+
+// wrongArguments is err, the command's own refusal of its arguments, as a wrong usage.
+func wrongArguments(cmd *cobra.Command, check cobra.PositionalArgs, args []string, err error) error {
+	switch {
+	case takesNone(cmd, check, args):
+		// The library calls a word after such a command an unknown command, which it is not.
+		return fail.Usage(fmt.Sprintf("%s takes no argument, and %q was given.", cmd.CommandPath(), args[0]), usageOf(cmd))
+	case cmd.HasSubCommands() && len(args) > 0 && check(cmd, args[:1]) != nil:
+		// A word after a noun that is neither a command of it nor an argument it takes.
+		return noSuchCommand(cmd, args)
+	}
+	if _, own := err.(*fail.Error); own {
+		return err
+	}
+	return fail.Usage(fmt.Sprintf("%s takes %s, and %s given.", cmd.CommandPath(), taken(cmd, check, len(args)), given(len(args))), usageOf(cmd))
 }
 
 // takesNone says whether the command refused its arguments because it takes none at all, by

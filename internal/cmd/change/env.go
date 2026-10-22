@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/pethost-dev/cli/internal/app"
+	"github.com/pethost-dev/cli/internal/dotenv"
 	"github.com/pethost-dev/cli/internal/target"
 	"github.com/pethost-dev/cli/internal/ui"
 )
@@ -77,7 +78,7 @@ func listEnv(ctx context.Context, a *app.App) error {
 		return a.PrintJSON(answer)
 	}
 
-	names := variableNames(env.text)
+	names := dotenv.Names(env.text)
 	if len(names) == 0 {
 		sayNoVariables(a, project, env)
 		return nil

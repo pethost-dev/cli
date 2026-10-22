@@ -129,7 +129,7 @@ func (l *Live) spin() {
 func (l *Live) erase() {
 	if l.drawn > 0 {
 		// From the line's start: a ^C the terminal echoed has moved the cursor along it.
-		fmt.Fprintf(l.screen.Err, "\r\x1b[%dA\x1b[J", l.drawn)
+		fmt.Fprint(l.screen.Err, rewind(l.drawn))
 		l.drawn = 0
 	}
 }

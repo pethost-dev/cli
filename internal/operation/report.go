@@ -2,6 +2,7 @@ package operation
 
 import (
 	"context"
+	"slices"
 	"time"
 
 	pethost "github.com/pethost-dev/sdk/go"
@@ -56,28 +57,38 @@ func (r *Result) Problems(a *app.App) {
 }
 
 func (r *Result) failed(ctx context.Context, a *app.App, project target.Project, words Words) error {
-	operation := r.Operation
-	headline := words.Failed + "."
-	switch {
-	case operation.Status == pethost.OperationStatusCancelled:
-		headline = words.Failed + ": it was cancelled."
-	case operation.FailureMessage != "":
-		headline = words.Failed + ": " + ui.Clean(operation.FailureMessage)
-	}
-
-	e := &fail.Error{Exit: fail.ExitFailed, Code: failureCode(operation), Message: headline, Shown: true}
-	if isDeploy(operation) && !r.LogShown {
+	said := headline(r.Operation, words.Failed)
+	e := &fail.Error{Exit: fail.ExitFailed, Code: failureCode(r.Operation), Message: said, Shown: true}
+	if isDeploy(r.Operation) && !r.LogShown {
 		e.Next = "pethost logs --deploy" + project.Flag()
 	}
-	if a.JSON {
-		return e
-	}
 
+	if !a.JSON {
+		r.show(ctx, a, project, e)
+	}
+	return e
+}
+
+// headline is a failure's first line: the command's words for it, then the machine's reason.
+func headline(operation *pethost.Operation, failed string) string {
+	switch {
+	case operation.Status == pethost.OperationStatusCancelled:
+		return failed + ": it was cancelled."
+	case operation.FailureMessage != "":
+		return failed + ": " + ui.Clean(operation.FailureMessage)
+	}
+	return failed + "."
+}
+
+// show writes a failure for people: its headline, the lines that show why, what the project is
+// left with, and where the whole log is when they did not show it all.
+func (r *Result) show(ctx context.Context, a *app.App, project target.Project, e *fail.Error) {
 	screen, stderr := a.UI, a.UI.Err
-	screen.ErrLine(stderr.Cross() + headline)
-	r.Failure = []string{headline}
+	screen.ErrLine(stderr.Cross() + e.Message)
+	r.Failure = []string{e.Message}
+
 	wholeLog := false
-	if operation.Status == pethost.OperationStatusFailed {
+	if r.Operation.Status == pethost.OperationStatusFailed {
 		var lines []string
 		lines, wholeLog = r.evidence(ctx, a, project)
 		for _, line := range lines {
@@ -91,7 +102,6 @@ func (r *Result) failed(ctx context.Context, a *app.App, project target.Project,
 	if e.Next != "" && !wholeLog {
 		screen.ErrLine("  Whole log: " + stderr.Bold(e.Next))
 	}
-	return e
 }
 
 func isDeploy(operation *pethost.Operation) bool {
@@ -131,12 +141,9 @@ func (r *Result) runs() bool {
 	if r.Project == nil {
 		return false
 	}
-	for _, service := range r.Project.Services {
-		if say.Runs(service.State) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(r.Project.Services, func(service pethost.Service) bool {
+		return say.Runs(service.State)
+	})
 }
 
 // hasVersionBefore says whether the machine keeps an earlier deploy's files to roll back to.
@@ -144,12 +151,9 @@ func (r *Result) hasVersionBefore() bool {
 	if r.Project == nil {
 		return false
 	}
-	for _, operation := range r.Project.Operations {
-		if operation.FilesKept {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(r.Project.Operations, func(operation pethost.Operation) bool {
+		return operation.FilesKept
+	})
 }
 
 // evidenceLines is how many lines of a failed service's last run are shown, its newest.

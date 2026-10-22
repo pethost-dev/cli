@@ -97,14 +97,16 @@ func readBackupState(ctx context.Context, a *app.App, projectID string) (*backup
 		},
 		func() error {
 			answer, err := client.GetProject(ctx, &pethost.GetProjectRequest{ProjectID: projectID})
-			if isNotFound(err) {
+			switch {
+			case isNotFound(err):
 				state.projectErr = err
 				return nil
+			case err != nil:
+				return err
 			}
-			if err == nil {
-				state.answer, state.project = answer, answer.Project
-			}
-			return err
+			state.answer = answer
+			state.project = answer.Project
+			return nil
 		},
 	)
 	return state, err
@@ -123,6 +125,12 @@ func (s *backupState) backupsOn() bool {
 	return s.machine.Machine != nil && s.machine.Machine.BackupsEnabled
 }
 
+// deletedUnknown is true while the machine has not read its list of snapshots, with backups on:
+// a project it does not have may then be a deleted one whose snapshots remain.
+func (s *backupState) deletedUnknown() bool {
+	return s.backupsOn() && s.machine.Machine.SnapshotListTime.IsZero()
+}
+
 func listSnapshots(ctx context.Context, a *app.App) error {
 	project, err := target.ForRead(ctx, a)
 	if err != nil {
@@ -133,27 +141,30 @@ func listSnapshots(ctx context.Context, a *app.App) error {
 		return err
 	}
 
-	switch {
-	case state.project == nil && state.deleted(project.ID) == nil:
+	id := ui.Clean(project.ID)
+	machine := state.machine.Machine
+	switch deleted := state.deleted(project.ID); {
+	case state.project == nil && deleted == nil && !state.deletedUnknown():
 		return state.projectErr
 	case a.JSON && state.project == nil:
 		return a.PrintJSON(state.machine)
 	case a.JSON:
 		return a.PrintJSON(state.answer)
+	case state.project == nil && deleted != nil:
+		sayDeleted(a, deleted)
+		return nil
 	case state.project == nil:
-		sayDeleted(a, state.deleted(project.ID))
+		a.UI.Info("%s is not on the machine, and the machine has not read the list of snapshots yet: whether any of its snapshots remain is not known.", id)
+		sayWhyUnread(a, machine)
 		return nil
 	}
 
-	id := ui.Clean(project.ID)
-	switch machine := state.machine.Machine; {
+	switch {
 	case !state.backupsOn():
 		a.UI.Info("Backups are off on your machine: nothing is backed up, and a deleted project or volume is gone for good.")
 	case state.project.SnapshotListTime.IsZero():
 		a.UI.Info("The machine has not read the list of snapshots yet.")
-		if machine.SnapshotListFailureMessage != "" {
-			a.UI.Problem("%s", ui.Clean(machine.SnapshotListFailureMessage))
-		}
+		sayWhyUnread(a, machine)
 	case len(state.project.Snapshots) == 0:
 		a.UI.Info("%s has no snapshot yet. Take one:  %s", id, a.UI.Err.Bold("pethost backup now"+project.Flag()))
 	default:
@@ -162,6 +173,13 @@ func listSnapshots(ctx context.Context, a *app.App) error {
 		a.UI.Info("Put one back:  %s", a.UI.Err.Bold("pethost backup restore "+shortID(state.project.Snapshots[0].SnapshotID)+project.Flag()))
 	}
 	return nil
+}
+
+// sayWhyUnread writes why the machine could not read its list of snapshots, once a read failed.
+func sayWhyUnread(a *app.App, machine *pethost.Machine) {
+	if machine.SnapshotListFailureMessage != "" {
+		a.UI.Problem("%s", ui.Clean(machine.SnapshotListFailureMessage))
+	}
 }
 
 // printSnapshots writes a row for each snapshot: for a person its id's start, which is what

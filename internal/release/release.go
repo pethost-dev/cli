@@ -91,7 +91,7 @@ func numbers(version string) ([]int, bool) {
 	var parsed []int
 	for part := range strings.SplitSeq(version, ".") {
 		number, err := strconv.Atoi(part)
-		if err != nil || number < 0 || strings.TrimLeft(part, "0123456789") != "" {
+		if err != nil || strings.TrimLeft(part, "0123456789") != "" {
 			return nil, false
 		}
 		parsed = append(parsed, number)

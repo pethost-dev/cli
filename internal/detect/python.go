@@ -130,12 +130,17 @@ func (py *python) byRow(p *plan, row pythonRow) *Finding {
 	if row.server != "" {
 		py.add(p, row.server)
 	}
-	module := strings.ReplaceAll(strings.TrimSuffix(file, ".py"), "/", ".")
-	start := strings.NewReplacer("{file}", file, "{module}", module, "{object}", object).Replace(row.start)
+	start := strings.NewReplacer("{file}", file, "{module}", pythonModule(file), "{object}", object).Replace(row.start)
 	p.start, p.port = strings.Fields(start), row.port
 	p.env = append(p.env, row.env...)
 	p.evidence = append(p.evidence, file+" is what it starts with")
 	return p.finding(py.f)
+}
+
+// pythonModule is the module a file of the folder is, as Python imports it: app/main.py is
+// app.main.
+func pythonModule(file string) string {
+	return strings.ReplaceAll(strings.TrimSuffix(file, ".py"), "/", ".")
 }
 
 // file is the first of the files that has the line a pattern looks for, or the one other .py
@@ -252,11 +257,12 @@ func (py *python) django(p *plan, declared string) *Finding {
 	})
 	if len(modules) == 1 {
 		settings := path.Join(path.Dir(modules[0]), "settings.py")
-		if noHosts.MatchString(py.f.Text(settings)) {
+		content := py.f.Text(settings)
+		if noHosts.MatchString(content) {
 			return p.cannot(settings + " allows no host (ALLOWED_HOSTS = []), and Django answers 400 at every address its settings " +
 				"do not allow. Name the site's address there, or \"*\", and deploy again.")
 		}
-		if strings.Contains(py.f.Text(settings), "sqlite3") {
+		if strings.Contains(content, "sqlite3") {
 			p.notes = append(p.notes, "What the site saves is in a SQLite file inside the container, and a new deploy starts "+
 				"with a new one: a VOLUME line in the Dockerfile keeps the directory "+settings+" places the file in.")
 		}
@@ -278,8 +284,7 @@ func (py *python) django(p *plan, declared string) *Finding {
 			"which module a server runs is its Dockerfile's to say.", len(modules)))
 	default:
 		py.add(p, "gunicorn")
-		module := strings.ReplaceAll(strings.TrimSuffix(modules[0], ".py"), "/", ".")
-		p.start, p.port = []string{"gunicorn", "--bind", "0.0.0.0:8000", module + ":application"}, 8000
+		p.start, p.port = []string{"gunicorn", "--bind", "0.0.0.0:8000", pythonModule(modules[0]) + ":application"}, 8000
 		p.evidence = append(p.evidence, modules[0]+" is its WSGI module")
 	}
 	return p.finding(py.f)

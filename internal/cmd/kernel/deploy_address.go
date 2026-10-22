@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -84,13 +85,10 @@ func hostURL(project *pethost.Project, host string) string {
 // deployedWellBefore says whether a deploy other than this one has succeeded, among those the
 // machine keeps: the project then had its chance at an address, and having none is a choice.
 func deployedWellBefore(project *pethost.Project, this *pethost.Operation) bool {
-	for _, operation := range project.Operations {
-		if operation.Kind == pethost.OperationKindDeploy && operation.Status == pethost.OperationStatusSucceeded &&
-			operation.OperationID != this.OperationID {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(project.Operations, func(operation pethost.Operation) bool {
+		return operation.Kind == pethost.OperationKindDeploy && operation.Status == pethost.OperationStatusSucceeded &&
+			operation.OperationID != this.OperationID
+	})
 }
 
 // listeningPorts is how many ports the project's services listen on.
@@ -107,7 +105,7 @@ func listeningPorts(project *pethost.Project) int {
 func (d *deploy) noAddress(project *pethost.Project, why string) {
 	screen := d.a.UI
 	screen.Info("  %s", why)
-	for _, command := range d.project.AddressCommands(project, d.appsDomain()) {
+	for _, command := range d.project.AddressCommands(project, appsDomain(d.machine.Machine)) {
 		screen.Info("    %s", screen.Err.Bold(command))
 	}
 }

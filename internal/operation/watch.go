@@ -88,7 +88,7 @@ func follow(ctx context.Context, client *pethost.Client, projectID, operationID 
 		case ctx.Err() != nil:
 			return log, ctx.Err()
 		case err != nil && !fail.CallAgain(err):
-			return log, orEnded(err)
+			return log, err
 		}
 
 		// A stream that brought lines did its work before it broke: a long deploy on a poor

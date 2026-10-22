@@ -49,12 +49,12 @@ func sayServices(a *app.App, project *pethost.Project) {
 	if project == nil {
 		return
 	}
-	err := a.UI.Err
+	stderr := a.UI.Err
 	states := make([]string, len(project.Services))
 	for i, service := range project.Services {
 		state := say.State(service.State)
 		if say.Runs(service.State) {
-			state = err.Green(state)
+			state = stderr.Green(state)
 		}
 		states[i] = ui.Clean(service.Service) + " " + state
 	}
@@ -62,7 +62,7 @@ func sayServices(a *app.App, project *pethost.Project) {
 		a.UI.Info("  %s", strings.Join(states, " · "))
 	}
 	for _, problem := range project.Problems {
-		a.UI.Problem("%s", say.Problem(err, problem))
+		a.UI.Problem("%s", say.Problem(stderr, problem))
 	}
 }
 

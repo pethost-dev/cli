@@ -1,6 +1,7 @@
 package detect
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"path"
@@ -54,9 +55,9 @@ func dockerfileOf(p *plan) File {
 
 	if p.serves != "" {
 		d.serve(path.Join(workdir, p.serves), p.app)
-		return d.file()
+	} else {
+		d.run(p)
 	}
-	d.run(p)
 	return d.file()
 }
 
@@ -101,10 +102,7 @@ func (d *dockerfile) run(p *plan) {
 		d.line("CMD %s", execForm(p.start))
 		return
 	}
-	last := p.shell
-	if last == "" {
-		last = strings.Join(p.start, " ")
-	}
+	last := cmp.Or(p.shell, strings.Join(p.start, " "))
 	d.comment("A shell runs this, and its last command takes the shell's place (exec), so that it gets the signal that stops the container.")
 	d.line("CMD %s", strings.Join(append(p.first, inPlaceOfShell(last)), " && \\\n    "))
 }

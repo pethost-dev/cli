@@ -164,17 +164,19 @@ func (d *deploy) askName(suggested string) (string, error) {
 // addressHint says where a project of this id will live, when the machine gives it its first
 // address.
 func (d *deploy) addressHint(id string) string {
-	if d.private || id == "" || d.appsDomain() == "" {
+	domain := appsDomain(d.machine.Machine)
+	if d.private || id == "" || domain == "" {
 		return ""
 	}
-	return "it will live at https://" + id + "." + d.appsDomain()
+	return "it will live at https://" + id + "." + domain
 }
 
-func (d *deploy) appsDomain() string {
-	if d.machine.Machine == nil {
+// appsDomain is the account's domain, cleaned to be printed; empty without a machine.
+func appsDomain(machine *pethost.Machine) string {
+	if machine == nil {
 		return ""
 	}
-	return ui.Clean(d.machine.Machine.AppsDomain)
+	return ui.Clean(machine.AppsDomain)
 }
 
 // nameFor suggests an id from a folder's name: its letters and digits in lower case, anything

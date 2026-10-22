@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/pethost-dev/cli/internal/app"
+	"github.com/pethost-dev/cli/internal/dotenv"
 	"github.com/pethost-dev/cli/internal/fail"
 	"github.com/pethost-dev/cli/internal/operation"
 	"github.com/pethost-dev/cli/internal/target"
@@ -111,7 +112,7 @@ func (p *envPush) run(ctx context.Context) error {
 	}
 
 	p.a.UI.Done("%s is a copy of %s now. Deployed in %s.", envPath, p.name(), done.took())
-	if line := nobodyReadsLine(done.Project); line != "" && len(variableNames(string(p.local))) > 0 {
+	if line := nobodyReadsLine(done.Project); line != "" && len(dotenv.Names(string(p.local))) > 0 {
 		p.a.UI.Info("  %s", line)
 	}
 	return done.said(p.a)
@@ -153,20 +154,20 @@ func (p *envPush) confirm(env *projectEnv) error {
 // question says what replacing the project's /.env does to its variables, then asks.
 func (p *envPush) question(env *projectEnv) string {
 	id, local := ui.Clean(p.project.ID), string(p.local)
-	names := variableNames(local)
+	names := dotenv.Names(local)
 	if !env.exists {
 		return id + " has no " + envPath + " yet. Send " + p.name() + ", which sets " + cmp.Or(listed(names), "nothing") + "?"
 	}
 
 	var gone, changed, added []string
-	for _, name := range variableNames(env.text) {
+	for _, name := range dotenv.Names(env.text) {
 		if !slices.Contains(names, name) {
 			gone = append(gone, name)
 		}
 	}
 	for _, name := range names {
-		was, had := statementOf(env.text, name)
-		is, _ := statementOf(local, name)
+		was, had := dotenv.Statement(env.text, name)
+		is, _ := dotenv.Statement(local, name)
 		switch {
 		case !had:
 			added = append(added, name)

@@ -33,7 +33,6 @@ func (p *logPrinter) page(lines []pethost.LogLine) {
 	}
 }
 
-// line writes one line.
 func (p *logPrinter) line(line pethost.LogLine) {
 	service := ui.Clean(line.Service)
 	if !p.out.Terminal {

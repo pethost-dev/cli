@@ -1,6 +1,7 @@
 package fail
 
 import (
+	"maps"
 	"strings"
 
 	"github.com/pethost-dev/cli/internal/jsonout"
@@ -32,9 +33,7 @@ func Print(screen *ui.Screen, err error, asJSON bool) int {
 // object is the error as --json prints it.
 func (e *Error) object() map[string]any {
 	object := map[string]any{"code": e.Code, "message": e.Message}
-	for name, detail := range e.Detail {
-		object[name] = detail
-	}
+	maps.Copy(object, e.Detail)
 	if e.Next != "" {
 		object["next"] = e.Next
 	}

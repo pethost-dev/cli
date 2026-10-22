@@ -90,9 +90,9 @@ func (d *deploy) remove(files []detect.File) (removed []string) {
 }
 
 // again deploys the folder as it is now, after a first deploy that failed: the project exists
-// since that one, however it ended.
+// since that one, however it ended, and the folder has the .pethost that run wrote and said.
 func (d *deploy) again(ctx context.Context) error {
-	d.create = false
+	d.create, d.writeFile = false, false
 	if err := d.readFolder(ctx); err != nil {
 		return err
 	}
@@ -126,14 +126,6 @@ func failedTask(tried *attempt, failure []string) string {
 	task.WriteString(whatToWrite)
 	task.WriteString("\nIf what failed is the project's own to mend and no Dockerfile can (a variable it needs, an error in its code), write the Dockerfile that is right and say in your last lines what the person has to do.\n")
 	return task.String()
-}
-
-func namesOf(files []detect.File) []string {
-	names := make([]string, len(files))
-	for i, file := range files {
-		names[i] = file.Name
-	}
-	return names
 }
 
 func wasOrWere(count int) string {

@@ -43,11 +43,7 @@ func printProject(a *app.App, named target.Project, machine *pethost.Machine, pr
 // command that gives it one: the machine gives none to a project that publishes no web port and
 // listens on several, and a person may have taken it away.
 func sayHowToGiveAddress(a *app.App, named target.Project, machine *pethost.Machine, project *pethost.Project) {
-	domain := ""
-	if machine != nil {
-		domain = ui.Clean(machine.AppsDomain)
-	}
-	commands := named.AddressCommands(project, domain)
+	commands := named.AddressCommands(project, appsDomain(machine))
 	if len(commands) == 0 {
 		return
 	}

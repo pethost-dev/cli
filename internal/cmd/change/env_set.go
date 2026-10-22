@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/pethost-dev/cli/internal/app"
+	"github.com/pethost-dev/cli/internal/dotenv"
 	"github.com/pethost-dev/cli/internal/fail"
 	"github.com/pethost-dev/cli/internal/operation"
 	"github.com/pethost-dev/cli/internal/target"
@@ -145,7 +146,7 @@ func setVariables(text string, variables []variable) (string, string) {
 	changed := text
 	for i, v := range variables {
 		names[i] = v.name
-		changed = withVariable(changed, v.name, v.value)
+		changed = dotenv.With(changed, v.name, v.value)
 	}
 
 	if changed == text {
@@ -159,12 +160,12 @@ func removeVariables(text string, names []string) (string, string) {
 	var gone, absent []string
 	changed := text
 	for _, name := range names {
-		if _, set := statementOf(changed, name); !set {
+		if _, set := dotenv.Statement(changed, name); !set {
 			absent = append(absent, name)
 			continue
 		}
 		gone = append(gone, name)
-		changed = withoutVariable(changed, name)
+		changed = dotenv.Without(changed, name)
 	}
 
 	if len(gone) == 0 {

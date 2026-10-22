@@ -169,7 +169,7 @@ func noSuchVolume(project target.Project, read *pethost.Project, name string) er
 
 // afterVolume says where a volume's data is once the volume is deleted, by what the machine
 // knows of its snapshots.
-func afterVolume(err *ui.Stream, state *backupState, volume pethost.Volume) string {
+func afterVolume(stderr *ui.Stream, state *backupState, volume pethost.Volume) string {
 	switch {
 	case !state.backupsOn():
 		return "Backups are off: it is gone for good."
@@ -178,5 +178,5 @@ func afterVolume(err *ui.Stream, state *backupState, volume pethost.Volume) stri
 	case volume.SnapshotCount == 0:
 		return "No snapshot holds it: it is gone for good."
 	}
-	return fmt.Sprintf("It then lives only in %s, the newest of %s.", ui.Plural(uint64(volume.SnapshotCount), "snapshot"), err.When(volume.LastBackupTime))
+	return fmt.Sprintf("It then lives only in %s, the newest of %s.", ui.Plural(uint64(volume.SnapshotCount), "snapshot"), stderr.When(volume.LastBackupTime))
 }

@@ -12,6 +12,8 @@ import (
 	"unicode/utf16"
 
 	"github.com/BurntSushi/toml"
+
+	"github.com/pethost-dev/cli/internal/dotenv"
 )
 
 // A Folder is a project's folder as a stack reads it: files by their path from its root,
@@ -117,22 +119,11 @@ func (f *Folder) Lines(name string) []string {
 	return lines
 }
 
-// Env are the variables of a dotenv file, as the machine gives them to the container: NAME=value
-// lines, an "export " before the name and quotes around the value left out.
+// Env are the variables of a dotenv file, as Compose reads them and the machine gives them to
+// the container; none when it is not there.
 func (f *Folder) Env(name string) map[string]string {
-	variables := map[string]string{}
-	for _, line := range f.Lines(name) {
-		key, value, found := strings.Cut(strings.TrimPrefix(line, "export "), "=")
-		if !found {
-			continue
-		}
-		value = strings.TrimSpace(value)
-		if len(value) >= 2 && (value[0] == '"' || value[0] == '\'') && value[len(value)-1] == value[0] {
-			value = value[1 : len(value)-1]
-		}
-		variables[strings.TrimSpace(key)] = value
-	}
-	return variables
+	content, _ := f.Read(name)
+	return dotenv.Values(string(content))
 }
 
 // Names are the names in a directory of the folder ("." is its root), directories with a

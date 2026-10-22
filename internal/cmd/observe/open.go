@@ -89,22 +89,20 @@ type site struct {
 // command for each.
 func siteOf(a *app.App, named target.Project, project *pethost.Project, service string) (site, error) {
 	sites := sitesOf(project)
-	id := ui.Clean(named.ID)
-	listed := "pethost domain" + named.Flag()
-
 	if service != "" {
 		for _, candidate := range sites {
 			if candidate.service == service {
 				return candidate, nil
 			}
 		}
-		return site{}, fail.Failed("%s of %s has no address: no route sends to it.", ui.Clean(service), id).WithLead("The addresses the project has:", listed)
-	}
-	if len(sites) == 0 {
-		return site{}, errNoAddress
+		return site{}, fail.Failed("%s of %s has no address: no route sends to it.", ui.Clean(service), ui.Clean(named.ID)).
+			WithLead("The addresses the project has:", "pethost domain"+named.Flag())
 	}
 
-	if len(sites) == 1 {
+	switch len(sites) {
+	case 0:
+		return site{}, errNoAddress
+	case 1:
 		return sites[0], nil
 	}
 	return pickSite(a, named, sites)

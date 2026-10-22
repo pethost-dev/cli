@@ -149,9 +149,10 @@ func writeNew(path, content string) error {
 	return err
 }
 
-func itOrThem(count int) string {
-	if count == 1 {
-		return "it"
+func namesOf(files []detect.File) []string {
+	names := make([]string, len(files))
+	for i, file := range files {
+		names[i] = file.Name
 	}
-	return "them"
+	return names
 }

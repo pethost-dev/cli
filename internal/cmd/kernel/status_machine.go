@@ -2,6 +2,7 @@ package kernel
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -113,10 +114,9 @@ func emojiColumn(out *ui.Stream, all []pethost.ProjectSummary, project pethost.P
 	if !out.Terminal {
 		return ""
 	}
-	anyHas := false
-	for _, other := range all {
-		anyHas = anyHas || emojiOf(other.Metadata) != ""
-	}
+	anyHas := slices.ContainsFunc(all, func(other pethost.ProjectSummary) bool {
+		return emojiOf(other.Metadata) != ""
+	})
 	switch emoji := emojiOf(project.Metadata); {
 	case !anyHas:
 		return ""

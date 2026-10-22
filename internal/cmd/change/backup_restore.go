@@ -67,7 +67,7 @@ func (r *restore) run(ctx context.Context) error {
 	switch deleted := state.deleted(r.project.ID); {
 	case state.project != nil:
 		question, err = r.replaceVolumes(ctx, state.project)
-	case deleted != nil:
+	case deleted != nil || state.deletedUnknown():
 		question = r.bringBack(deleted)
 	default:
 		return state.projectErr
@@ -103,23 +103,27 @@ func (r *restore) confirm(question string) error {
 }
 
 // replaceVolumes settles which volumes of a project on the machine the restore replaces, and
-// is the question about it.
+// is the question about it. While the machine has not read its list of snapshots, the id and
+// the volumes go to it as they were given: the machine judges them.
 func (r *restore) replaceVolumes(ctx context.Context, project *pethost.Project) (string, error) {
-	snapshot, err := r.findSnapshot(ctx, project)
-	if err != nil {
-		return "", err
-	}
-	r.snapshotID = snapshot.SnapshotID
-	if len(r.volumes) == 0 {
-		r.volumes = snapshot.Volumes
+	held := "in the snapshot " + ui.Clean(r.snapshotID)
+	if !project.SnapshotListTime.IsZero() {
+		snapshot, err := r.findSnapshot(ctx, project)
+		if err != nil {
+			return "", err
+		}
+		r.snapshotID = snapshot.SnapshotID
+		if len(r.volumes) == 0 {
+			r.volumes = snapshot.Volumes
+		}
+		held = r.a.UI.Err.When(snapshot.CreateTime)
 	}
 
 	if len(r.volumes) == 0 {
 		return "", nil
 	}
-	id, when := ui.Clean(project.ProjectID), r.a.UI.Err.When(snapshot.CreateTime)
 	return fmt.Sprintf("This replaces %s of %s with what %s held %s. The project is backed up first, then stopped, restored and started again. Go on?",
-		volumesNamed(r.volumes), id, itOrThey(r.volumes), when), nil
+		volumesNamed(r.volumes), ui.Clean(project.ProjectID), itOrThey(r.volumes), held), nil
 }
 
 func volumesNamed(volumes []string) string {
@@ -171,9 +175,15 @@ func (r *restore) findSnapshot(ctx context.Context, project *pethost.Project) (p
 		len(fits), ui.Clean(r.project.ID), ui.Clean(r.snapshotID))).WithLead("Its snapshots:", "pethost backup"+r.project.Flag())
 }
 
-// bringBack is the question before a deleted project is restored whole.
+// bringBack is the question before a project the machine does not have is restored whole: a
+// deleted one, or nil while the machine has not read its list of snapshots, when the id and the
+// project go to it as they were given and it judges them. When the id given is the start of a
+// deleted project's newest snapshot's, that snapshot is the one restored.
 func (r *restore) bringBack(deleted *pethost.DeletedProject) string {
-	id, from := ui.Clean(deleted.ProjectID), "the snapshot "+ui.Clean(r.snapshotID)
+	id, from := ui.Clean(r.project.ID), "the snapshot "+ui.Clean(r.snapshotID)
+	if deleted == nil {
+		return fmt.Sprintf("%s is not on the machine. This brings back its files, volumes and source from %s, and deploys it. Go on?", id, from)
+	}
 	if newest := deleted.NewestSnapshot; newest != nil && strings.HasPrefix(newest.SnapshotID, r.snapshotID) {
 		r.snapshotID = newest.SnapshotID
 		from = "its snapshot of " + r.a.UI.Err.When(newest.CreateTime)
