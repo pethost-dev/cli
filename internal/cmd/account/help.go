@@ -187,7 +187,7 @@ var sections = []struct {
 // overview is the help of the program itself.
 func overview(root *cobra.Command) string {
 	var out strings.Builder
-	out.WriteString("Pethost runs your projects on resources reserved for them, at one flat price.\n\n")
+	out.WriteString("Pethost runs as many of your projects as fit in your plan, at one flat price.\n\n")
 	writeTasks(&out, root)
 	writeSections(&out, root)
 	out.WriteString("\npethost help <command> shows how a command is used, with examples.\n")
