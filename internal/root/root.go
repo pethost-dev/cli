@@ -106,7 +106,7 @@ func tree(a *app.App) *cobra.Command {
 	root := &cobra.Command{
 		Use:   "pethost",
 		Short: "Put a folder online, and see what runs on your machine",
-		Long: `Pethost runs your projects on a machine of your own.
+		Long: `Pethost runs your projects on resources reserved for them, at one flat price.
 
   pethost deploy    puts this folder online; again, a new version
   pethost           shows this folder's project, or everything on the machine`,
