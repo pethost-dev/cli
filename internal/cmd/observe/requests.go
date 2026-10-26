@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/pethost-dev/cli/internal/app"
+	"github.com/pethost-dev/cli/internal/stream"
 	"github.com/pethost-dev/cli/internal/target"
 )
 
@@ -137,7 +138,7 @@ func (r *requests) follow(sequence uint64) error {
 	open := func() iter.Seq2[*pethost.TailHTTPTrafficResponse, error] {
 		return r.client.TailHTTPTraffic(r.ctx, &pethost.TailHTTPTrafficRequest{ProjectID: r.project.ID, Filter: r.filter(), AfterSequence: sequence})
 	}
-	return follow(r.ctx, r.a, open, func(response *pethost.TailHTTPTrafficResponse) error {
+	return stream.Follow(r.ctx, r.a, open, func(response *pethost.TailHTTPTrafficResponse) error {
 		request := response.Request
 		if request == nil {
 			return nil

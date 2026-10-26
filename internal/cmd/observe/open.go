@@ -130,17 +130,13 @@ func noAddress(ctx context.Context, client *pethost.Client, named target.Project
 
 // pickSite asks which of several services' addresses is meant, each shown beside its service.
 func pickSite(a *app.App, named target.Project, sites []site) (site, error) {
-	if !a.UI.CanAsk() {
-		commands := make([]string, len(sites))
-		for i, candidate := range sites {
-			commands[i] = "pethost open " + app.ShellWord(candidate.service) + named.Flag()
-		}
-		return site{}, fail.Choice("Which service?", commands...)
-	}
-
 	choices := make([]ui.Choice, len(sites))
 	for i, candidate := range sites {
-		choices[i] = ui.Choice{Label: ui.Clean(candidate.service), Detail: ui.Clean(candidate.address)}
+		choices[i] = ui.Choice{
+			Label:   ui.Clean(candidate.service),
+			Detail:  ui.Clean(candidate.address),
+			Command: "pethost open " + app.ShellWord(candidate.service) + named.Flag(),
+		}
 	}
 	picked, err := a.UI.Pick("Which service?", choices)
 	if err != nil {

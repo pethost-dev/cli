@@ -3,7 +3,6 @@ package release
 import (
 	"encoding/json"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/pethost-dev/cli/internal/kept"
@@ -19,8 +18,10 @@ type Look struct {
 	Settled string `json:"settled_version,omitempty"`
 }
 
+const lookName = "update.json"
+
 func lookFile() (string, error) {
-	return kept.File("update.json")
+	return kept.File(lookName)
 }
 
 // LastLook reads the memory; a zero Look when there is none.
@@ -37,16 +38,5 @@ func LastLook() Look {
 // Remember writes the memory. An error = it could not be kept, as in a home that is read-only:
 // whoever looks only once a day must then not look at all, or it would look at every command.
 func (l Look) Remember() error {
-	path, err := lookFile()
-	if err != nil {
-		return err
-	}
-	data, err := json.Marshal(l)
-	if err != nil {
-		return err
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		return err
-	}
-	return os.WriteFile(path, append(data, '\n'), 0o600)
+	return kept.Write(lookName, l)
 }

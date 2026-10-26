@@ -2,7 +2,6 @@ package kernel
 
 import (
 	"cmp"
-	"errors"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -128,16 +127,6 @@ func (d *deploy) nameNew(suggested string) error {
 		}
 		suggested = ""
 	}
-}
-
-// refusedName is the machine's sentence when it cannot take a request's values, as a new
-// project's id; empty for any other end. A failure below the API may carry the same code: it
-// has a cause, which a refusal has not.
-func refusedName(err error) string {
-	if api, ok := errors.AsType[*pethost.Error](err); ok && api.Code == pethost.CodeInvalidArgument && api.Unwrap() == nil {
-		return ui.Clean(api.Message)
-	}
-	return ""
 }
 
 // askName asks for the new project's id, shown with the address it will have. Off a terminal

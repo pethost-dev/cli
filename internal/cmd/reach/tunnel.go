@@ -127,17 +127,11 @@ func (t *tunnel) portOf(f facts, named uint32) (uint32, error) {
 	case len(ports) == 0:
 		return 0, fail.Failed("The machine knows of no port that %s listens on.", ui.Clean(t.service)).
 			WithLead("Name the port:", "pethost tunnel "+app.ShellWord(t.service)+":PORT"+t.project.Flag())
-	case !t.a.UI.CanAsk():
-		commands := make([]string, len(ports))
-		for i, port := range ports {
-			commands[i] = t.commandFor(t.service, port)
-		}
-		return 0, fail.Choice("Which port of "+ui.Clean(t.service)+"?", commands...)
 	}
 
 	choices := make([]ui.Choice, len(ports))
 	for i, port := range ports {
-		choices[i] = ui.Choice{Label: strconv.FormatUint(uint64(port), 10)}
+		choices[i] = ui.Choice{Label: strconv.FormatUint(uint64(port), 10), Command: t.commandFor(t.service, port)}
 	}
 	picked, err := t.a.UI.Pick("Which port of "+ui.Clean(t.service)+"?", choices)
 	if err != nil {

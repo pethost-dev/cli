@@ -15,7 +15,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -165,8 +164,10 @@ type choice struct {
 	Program string `json:"program"`
 }
 
+const choiceName = "agent.json"
+
 func choiceFile() (string, error) {
-	return kept.File("agent.json")
+	return kept.File(choiceName)
 }
 
 // ChoiceFile is where the choice is kept, to tell the person; empty where nothing can be kept.
@@ -193,13 +194,5 @@ func remembered() string {
 
 // Remember keeps the agent as the person's choice for the next runs.
 func (a Agent) Remember() error {
-	path, err := choiceFile()
-	if err != nil {
-		return err
-	}
-	data, _ := json.Marshal(choice{Program: a.Program})
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		return err
-	}
-	return os.WriteFile(path, append(data, '\n'), 0o600)
+	return kept.Write(choiceName, choice{Program: a.Program})
 }

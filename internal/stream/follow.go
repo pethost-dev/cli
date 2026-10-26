@@ -1,4 +1,9 @@
-package observe
+// Package stream follows a stream of the API until the person leaves, or until what it streams
+// has ended. The SDK never calls again by itself, so a stream that breaks, as every one does when
+// the panel restarts for its own deploy or the machine for an update, is opened again from where
+// the last one stopped. The pauses between the calls grow, and when followTries calls in a row
+// brought nothing, the last failure is the command's.
+package stream
 
 import (
 	"context"
@@ -12,12 +17,6 @@ import (
 	"github.com/pethost-dev/cli/internal/fail"
 )
 
-// A follow prints what a stream brings until the person leaves. The SDK never calls again by
-// itself, so a stream that breaks, as every one does when the panel restarts for its own deploy
-// or the machine for an update, is opened again from where the last one stopped. The pauses
-// between the calls grow, and when followTries calls in a row brought nothing, the last
-// failure is the command's.
-
 // followTries is how many calls in a row may bring nothing: with their pauses, about two
 // minutes, which a machine's restart fits in.
 const followTries = 8
@@ -29,11 +28,11 @@ const longestPause = 30 * time.Second
 // service's stream that broke after it is no step towards giving up.
 const stayedOpen = time.Minute
 
-// follow ranges over a stream that is opened again each time it ends. open makes the next call:
+// Follow ranges over a stream that is opened again each time it ends. open makes the next call:
 // it reads where to go on from, which each keeps as it takes the responses. It returns nil when
 // the person left with Ctrl-C, each's error when each gave one, and the stream's last failure
 // when calling again did not help.
-func follow[R any](ctx context.Context, a *app.App, open func() iter.Seq2[R, error], each func(R) error) error {
+func Follow[R any](ctx context.Context, a *app.App, open func() iter.Seq2[R, error], each func(R) error) error {
 	said := false
 	for tries := 0; ; tries++ {
 		started := time.Now()

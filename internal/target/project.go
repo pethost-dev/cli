@@ -168,29 +168,23 @@ func choose(ctx context.Context, a *app.App, read bool) (Project, error) {
 		project := Project{ID: machine.Projects[0].ProjectID, Source: OnlyProject}
 		Announce(a, project)
 		return project, nil
-	case !a.UI.CanAsk():
-		return Project{}, fail.Choice("Which project?", projectCommands(a, machine.Projects)...)
 	}
 
-	picked, err := a.UI.Pick("Which project?", projectChoices(machine.Projects))
+	picked, err := a.UI.Pick("Which project?", projectChoices(a, machine.Projects))
 	if err != nil {
 		return Project{}, err
 	}
 	return Project{ID: machine.Projects[picked].ProjectID, Source: Picked}, nil
 }
 
-func projectCommands(a *app.App, projects []pethost.ProjectSummary) []string {
-	commands := make([]string, len(projects))
-	for i, project := range projects {
-		commands[i] = a.CommandLine("-p", project.ProjectID)
-	}
-	return commands
-}
-
-func projectChoices(projects []pethost.ProjectSummary) []ui.Choice {
+func projectChoices(a *app.App, projects []pethost.ProjectSummary) []ui.Choice {
 	choices := make([]ui.Choice, len(projects))
 	for i, project := range projects {
-		choices[i] = ui.Choice{Label: ui.Clean(project.ProjectID), Detail: ui.Clean(Title(project.Metadata))}
+		choices[i] = ui.Choice{
+			Label:   ui.Clean(project.ProjectID),
+			Detail:  ui.Clean(Title(project.Metadata)),
+			Command: a.CommandLine("-p", project.ProjectID),
+		}
 	}
 	return choices
 }

@@ -10,7 +10,6 @@ import (
 	"errors"
 	"io/fs"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -39,7 +38,8 @@ type Stored struct {
 	URL string `json:"url"`
 	// What the calls carry: an API token, or the token of an OAuth sign-in.
 	Token string `json:"token"`
-	// An OAuth sign-in: the client it registered as, to sign in again without registering.
+	// An OAuth sign-in: the client it registered as, which logout revokes the token with. Empty
+	// for an API token, which is how a sign-in made in the browser is told from one.
 	ClientID string `json:"client_id,omitempty"`
 	// When the person signed in.
 	SignInTime time.Time `json:"sign_in_time,omitzero"`
@@ -81,10 +81,12 @@ func samePanel(a, b string) bool {
 	return strings.TrimRight(a, "/") == strings.TrimRight(b, "/")
 }
 
-// file is where the sign-in is stored: pethost/signin.json under the user's configuration
+// storedName is the sign-in's file: pethost/signin.json under the user's configuration
 // directory.
+const storedName = "signin.json"
+
 func file() (string, error) {
-	return kept.File("signin.json")
+	return kept.File(storedName)
 }
 
 // Load reads the stored sign-in; nil = there is none.
@@ -108,26 +110,9 @@ func Load() (*Stored, error) {
 	return &stored, nil
 }
 
-// Store keeps a sign-in for the next runs, in a file only its owner reads, written whole or not
-// at all.
+// Store keeps a sign-in for the next runs.
 func Store(stored Stored) error {
-	path, err := file()
-	if err != nil {
-		return err
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		return err
-	}
-	data, err := json.MarshalIndent(stored, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	temporary := path + ".new"
-	if err := os.WriteFile(temporary, append(data, '\n'), 0o600); err != nil {
-		return err
-	}
-	return os.Rename(temporary, path)
+	return kept.Write(storedName, stored)
 }
 
 // Remove forgets the stored sign-in; nil when there was none.

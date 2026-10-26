@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"golang.org/x/crypto/ssh"
 
@@ -45,7 +46,7 @@ func OwnKey() (*Key, error) {
 		return nil, err
 	}
 
-	data, err := os.ReadFile(path)
+	data, err := readKey(path)
 	if errors.Is(err, fs.ErrNotExist) {
 		data, err = makeKey(path)
 	}
@@ -84,7 +85,7 @@ func makeKey(path string) ([]byte, error) {
 	}
 	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if errors.Is(err, fs.ErrExist) {
-		return os.ReadFile(path)
+		return readKey(path)
 	}
 	if err != nil {
 		return nil, err
@@ -96,4 +97,21 @@ func makeKey(path string) ([]byte, error) {
 		return nil, err
 	}
 	return data, file.Close()
+}
+
+// readKey reads the key at path once it is whole: the command that makes it makes the file empty,
+// and writes the key into it a moment later, while another command may be reading. A file still
+// no key after a second is returned as it is, for the caller to refuse.
+func readKey(path string) ([]byte, error) {
+	deadline := time.Now().Add(time.Second)
+	for {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return nil, err
+		}
+		if _, err := ssh.ParsePrivateKey(data); err == nil || time.Now().After(deadline) {
+			return data, nil
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 }

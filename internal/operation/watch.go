@@ -6,12 +6,15 @@ package operation
 
 import (
 	"context"
+	"errors"
+	"iter"
 	"time"
 
 	pethost "github.com/pethost-dev/sdk/go"
 
 	"github.com/pethost-dev/cli/internal/app"
 	"github.com/pethost-dev/cli/internal/fail"
+	"github.com/pethost-dev/cli/internal/stream"
 	"github.com/pethost-dev/cli/internal/target"
 	"github.com/pethost-dev/cli/internal/ui"
 )
@@ -49,7 +52,15 @@ func Watch(ctx context.Context, a *app.App, project target.Project, started *pet
 	live := a.UI.Live(doing)
 	defer live.Stop()
 
-	log, err := follow(ctx, client, project.ID, started.OperationID, live)
+	var log []string
+	err = FollowLog(ctx, a, project.ID, started.OperationID, func(response *pethost.WatchOperationResponse) error {
+		if message, ok := response.Message.(pethost.WatchOperationResponseLog); ok {
+			line := ui.Clean(message.Text)
+			log = append(log, line)
+			live.Line(line)
+		}
+		return nil
+	})
 	if ctx.Err() != nil {
 		live.Stop()
 		return nil, left(a, project, started)
@@ -67,72 +78,64 @@ func Watch(ctx context.Context, a *app.App, project target.Project, started *pet
 	return &Result{Operation: answer.Operation, Project: answer.Project, Answer: answer, Log: log}, nil
 }
 
-// streamRetries is how often in a row a stream that brought nothing new is opened again before
-// the failure is the command's: a panel that restarts for its own deploy breaks every stream
-// once.
-const streamRetries = 5
+// errFinished ends the follow of a log whose stream has said its last word.
+var errFinished = errors.New("the operation finished")
 
-// follow streams the operation's log until the operation ends. A stream always starts from the
-// log's first line, so one opened again skips the lines already shown.
-func follow(ctx context.Context, client *pethost.Client, projectID, operationID string, live *ui.Live) ([]string, error) {
-	var log []string
-	request := &pethost.WatchOperationRequest{ProjectID: projectID, OperationID: operationID}
-
-	broken := 0
-	for {
-		held := len(log)
-		finished, err := followOnce(ctx, client, request, &log, live)
-		switch {
-		case finished:
-			return log, nil
-		case ctx.Err() != nil:
-			return log, ctx.Err()
-		case err != nil && !fail.CallAgain(err):
-			return log, err
-		}
-
-		// A stream that brought lines did its work before it broke: a long deploy on a poor
-		// network may break as often as it likes.
-		if len(log) > held {
-			broken = 0
-		}
-		if broken == streamRetries {
-			return log, orEnded(err)
-		}
-		broken++
-		if err := pause(ctx); err != nil {
-			return log, err
-		}
-	}
-}
-
-// followOnce reads one stream to its end, adding the lines that log does not hold yet.
-func followOnce(ctx context.Context, client *pethost.Client, request *pethost.WatchOperationRequest, log *[]string, live *ui.Live) (finished bool, err error) {
-	seen := 0
-	for response, err := range client.WatchOperation(ctx, request) {
-		if err != nil {
-			return false, err
-		}
-		switch message := response.Message.(type) {
-		case pethost.WatchOperationResponseLog:
-			seen++
-			if seen > len(*log) {
-				line := ui.Clean(message.Text)
-				*log = append(*log, line)
-				live.Line(line)
-			}
-		case pethost.WatchOperationResponseFinishedOperation:
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
-func orEnded(err error) error {
+// FollowLog streams an operation's log until the operation ends: each takes every new line, then
+// the finished operation. A stream always starts from the log's first line, so one opened again
+// skips the lines each has had, which bring the follow no nearer its end (newLines). It returns
+// nil when the operation ended or the person left with Ctrl-C, which ctx tells apart, and
+// otherwise the follow's failure.
+func FollowLog(ctx context.Context, a *app.App, projectID, operationID string, each func(*pethost.WatchOperationResponse) error) error {
+	client, err := a.Client()
 	if err != nil {
 		return err
 	}
-	return fail.Failed("The operation's log ended before the operation did.").WithNext("pethost status")
+	request := &pethost.WatchOperationRequest{ProjectID: projectID, OperationID: operationID}
+
+	given := 0 // the lines each has had
+	open := func() iter.Seq2[*pethost.WatchOperationResponse, error] {
+		return newLines(client.WatchOperation(ctx, request), &given)
+	}
+	err = stream.Follow(ctx, a, open, func(response *pethost.WatchOperationResponse) error {
+		if err := each(response); err != nil {
+			return err
+		}
+		if _, finished := response.Message.(pethost.WatchOperationResponseFinishedOperation); finished {
+			return errFinished
+		}
+		return nil
+	})
+	if errors.Is(err, errFinished) {
+		return nil
+	}
+	return err
+}
+
+// newLines is a stream of an operation's log without the lines given counts, which it counts on,
+// and without a response that is neither a line nor the end: the follower takes what it passes
+// for the stream's progress, and a stream opened again that sends only what was had is none.
+func newLines(responses iter.Seq2[*pethost.WatchOperationResponse, error], given *int) iter.Seq2[*pethost.WatchOperationResponse, error] {
+	return func(yield func(*pethost.WatchOperationResponse, error) bool) {
+		streamed := 0
+		for response, err := range responses {
+			if err == nil {
+				switch response.Message.(type) {
+				case pethost.WatchOperationResponseLog:
+					streamed++
+					if streamed <= *given {
+						continue
+					}
+					*given = streamed
+				case nil:
+					continue
+				}
+			}
+			if !yield(response, err) {
+				return
+			}
+		}
+	}
 }
 
 // left is the end of a command whose person pressed Ctrl-C: the operation goes on, and one line

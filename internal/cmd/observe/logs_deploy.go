@@ -2,8 +2,6 @@ package observe
 
 import (
 	"context"
-	"errors"
-	"iter"
 
 	pethost "github.com/pethost-dev/sdk/go"
 	"github.com/spf13/cobra"
@@ -169,56 +167,26 @@ func deployWords(deploy *pethost.Operation) string {
 	return "The deploy"
 }
 
-// errEnded ends the follow of a stream that has said its last word.
-var errEnded = errors.New("the stream ended")
-
 // follow prints the log of a deploy that runs, each line as it is written, to the deploy's
 // end, then reports the end as the command that started the deploy would.
 func (d *deployLog) follow() error {
-	// The API sends the log from its first line each time, so a stream that is opened again
-	// brings again the lines already shown: shown counts those, streamed the stream's own.
-	shown, streamed := 0, 0
-	open := func() iter.Seq2[*pethost.WatchOperationResponse, error] {
-		streamed = 0
-		return d.client.WatchOperation(d.ctx, &pethost.WatchOperationRequest{ProjectID: d.project.ID, OperationID: d.newest.OperationID})
-	}
-
-	err := follow(d.ctx, d.a, open, func(response *pethost.WatchOperationResponse) error {
-		switch message := response.Message.(type) {
-		case pethost.WatchOperationResponseLog:
-			streamed++
-			if streamed <= shown {
-				return nil
-			}
-			shown = streamed
-			return d.showNew(response, pethost.OperationLogLine(message))
-		case pethost.WatchOperationResponseFinishedOperation:
-			return d.showEnd(response)
-		}
-		return nil
-	})
-	if !errors.Is(err, errEnded) {
+	err := operation.FollowLog(d.ctx, d.a, d.project.ID, d.newest.OperationID, d.show)
+	if err != nil || d.ctx.Err() != nil {
 		return err
 	}
 	return d.report()
 }
 
-func (d *deployLog) showNew(response *pethost.WatchOperationResponse, line pethost.OperationLogLine) error {
+// show prints what the deploy's stream brought: under --json each response, the finished
+// operation's too, and otherwise each line.
+func (d *deployLog) show(response *pethost.WatchOperationResponse) error {
 	if d.a.JSON {
 		return d.a.PrintJSON(response)
 	}
-	operationLine(d.a.UI.Out, line.Time, line.Text)
-	return nil
-}
-
-// showEnd takes the stream's last message, the finished operation.
-func (d *deployLog) showEnd(response *pethost.WatchOperationResponse) error {
-	if d.a.JSON {
-		if err := d.a.PrintJSON(response); err != nil {
-			return err
-		}
+	if line, ok := response.Message.(pethost.WatchOperationResponseLog); ok {
+		operationLine(d.a.UI.Out, line.Time, line.Text)
 	}
-	return errEnded
+	return nil
 }
 
 // report says how the followed deploy ended, in the words and with the exit code of the

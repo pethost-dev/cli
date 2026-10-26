@@ -135,13 +135,11 @@ func (d *domainAdd) leadsTo(project *pethost.Project) (listener, error) {
 	case len(candidates) == 0:
 		return listener{}, fail.Failed("No service of %s listens on a port now: name where the address leads.", ui.Clean(project.ProjectID)).
 			WithNext(d.command("<service>:<port>"))
-	case !d.a.UI.CanAsk():
-		return listener{}, fail.Choice("Where does "+ui.Clean(d.host)+" lead?", d.commands(candidates)...)
 	}
 
 	choices := make([]ui.Choice, len(candidates))
 	for i, candidate := range candidates {
-		choices[i] = ui.Choice{Label: ui.Clean(candidate.String())}
+		choices[i] = ui.Choice{Label: ui.Clean(candidate.String()), Command: d.command(word(candidate.String()))}
 	}
 	picked, err := d.a.UI.Pick("Where does "+ui.Clean(d.host)+" lead?", choices)
 	if err != nil {
@@ -197,14 +195,6 @@ func (d *domainAdd) typed(project *pethost.Project) ([]listener, error) {
 // command is this command with where the address leads, a word as a shell takes it.
 func (d *domainAdd) command(to string) string {
 	return "pethost domain add " + word(d.host) + " " + to + d.project.Flag()
-}
-
-func (d *domainAdd) commands(candidates []listener) []string {
-	commands := make([]string, len(candidates))
-	for i, candidate := range candidates {
-		commands[i] = d.command(word(candidate.String()))
-	}
-	return commands
 }
 
 // listening are the ports the project's services listen on now, as the machine reports them:

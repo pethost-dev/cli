@@ -2,7 +2,6 @@ package change
 
 import (
 	"context"
-	"errors"
 
 	pethost "github.com/pethost-dev/sdk/go"
 	"github.com/spf13/cobra"
@@ -71,8 +70,8 @@ func setPassword(ctx context.Context, a *app.App, project target.Project, noQueu
 		done, err := deploy(ctx, a, project, noQueue, &pethost.DeployProjectRequest{
 			XPethost: &pethost.ProjectExtension{Password: password},
 		}, passwordWords)
-		if api, ok := errors.AsType[*pethost.Error](err); ok && api.Code == pethost.CodeInvalidArgument && a.UI.CanAsk() {
-			a.UI.Problem("%s", ui.Clean(api.Message))
+		if refusal, refused := fail.Refusal(err); refused && a.UI.CanAsk() {
+			a.UI.Problem("%s", refusal)
 			continue
 		}
 		if err != nil {

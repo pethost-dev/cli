@@ -21,8 +21,7 @@ func NoQueueFlag(cmd *cobra.Command) *bool {
 }
 
 // callAgainPause is how long to wait before calling again when a short action holds the
-// project, or when the operation that holds it is still starting, and before a log stream that
-// broke is opened again.
+// project, or when the operation that holds it is still starting.
 const callAgainPause = 2 * time.Second
 
 // Queue makes a call that changes a project, and when the project is busy with something else

@@ -10,12 +10,18 @@ import (
 type Choice struct {
 	Label  string
 	Detail string
+	// The full command that makes this choice where nobody can be asked.
+	Command string
 }
 
 // Pick asks the person to choose one of a few things with the arrow keys and Enter (or its
-// number), and returns its index. It needs a terminal (CanAsk): the caller decides what happens
-// without one. Esc or Ctrl-C leaves it with ErrInterrupted.
+// number), and returns its index. Off a terminal it is a NeedsChoice that names each choice's
+// Command. Esc or Ctrl-C leaves it with ErrInterrupted.
 func (s *Screen) Pick(question string, choices []Choice) (int, error) {
+	if !s.CanAsk() {
+		return 0, needsPick(question, choices)
+	}
+
 	restore, err := s.rawInput()
 	if err != nil {
 		return 0, err
@@ -46,6 +52,15 @@ func (s *Screen) Pick(question string, choices []Choice) (int, error) {
 		}
 		s.write(rewind(len(choices)+1) + s.pickerLines(question, choices, at))
 	}
+}
+
+// needsPick is the question that could not be asked, with the command for each choice.
+func needsPick(question string, choices []Choice) *NeedsChoice {
+	commands := make([]string, len(choices))
+	for i, choice := range choices {
+		commands[i] = choice.Command
+	}
+	return &NeedsChoice{Message: question, Commands: commands}
 }
 
 // rewind moves the cursor up over lines drawn before and clears them.

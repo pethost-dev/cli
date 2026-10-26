@@ -5,12 +5,14 @@ import (
 	"iter"
 
 	pethost "github.com/pethost-dev/sdk/go"
+
+	"github.com/pethost-dev/cli/internal/stream"
 )
 
 // follow prints each new line as the containers write it, from the line after cursor on, until
 // the person leaves. A stream that breaks goes on from the last line it brought.
 func (l *logs) follow(cursor string) error {
-	return follow(l.ctx, l.a,
+	return stream.Follow(l.ctx, l.a,
 		func() iter.Seq2[*pethost.TailContainerLogsResponse, error] { return l.tail(&cursor) },
 		func(response *pethost.TailContainerLogsResponse) error {
 			if response.Cursor != "" {

@@ -19,27 +19,17 @@ func Service(a *app.App, named string, services []string, line func(service stri
 		return services[0], nil
 	case len(services) == 0:
 		return "", fail.Failed("The project has no service.")
-	case !a.UI.CanAsk():
-		return "", fail.Choice("Which service?", serviceCommands(services, line)...)
 	}
 
 	choices := make([]ui.Choice, len(services))
 	for i, service := range services {
-		choices[i] = ui.Choice{Label: ui.Clean(service)}
+		choices[i] = ui.Choice{Label: ui.Clean(service), Command: line(service)}
 	}
 	picked, err := a.UI.Pick("Which service?", choices)
 	if err != nil {
 		return "", err
 	}
 	return services[picked], nil
-}
-
-func serviceCommands(services []string, line func(service string) string) []string {
-	commands := make([]string, len(services))
-	for i, service := range services {
-		commands[i] = line(service)
-	}
-	return commands
 }
 
 // ServiceNames are the names of a project's services, as GetProject answered them.

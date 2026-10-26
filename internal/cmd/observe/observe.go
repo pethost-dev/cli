@@ -1,6 +1,5 @@
 // Package observe is the commands that show what a project does: why, logs, requests and open.
-// Each has the files that begin with its name; follow.go and since.go are what several share:
-// the stream that is opened again where it broke, and the --since flag.
+// Each has the files that begin with its name; since.go is what several share: the --since flag.
 package observe
 
 import (

@@ -4,6 +4,8 @@ import (
 	"errors"
 
 	pethost "github.com/pethost-dev/sdk/go"
+
+	"github.com/pethost-dev/cli/internal/ui"
 )
 
 // CallAgain says whether a failure is one that the same call, made again, may get past: the
@@ -23,4 +25,16 @@ func CallAgain(err error) bool {
 		return true
 	}
 	return api.Unwrap() != nil
+}
+
+// Refusal is the machine's sentence when the API refused a request for its values, as a new
+// project's id or a password it cannot take: what a person may type again. ok is false for any
+// other end, a failure below the API under the same code too, as an answer that was not the
+// API's or a stream cut in the middle of a message, since only that has a cause.
+func Refusal(err error) (message string, ok bool) {
+	api, ok := errors.AsType[*pethost.Error](err)
+	if !ok || api.Code != pethost.CodeInvalidArgument || api.Unwrap() != nil {
+		return "", false
+	}
+	return ui.Clean(api.Message), true
 }

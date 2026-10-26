@@ -145,8 +145,8 @@ func (d *deploy) sendAsItIs(ctx context.Context) (*pethost.Operation, error) {
 	}
 	for {
 		started, err := d.start(ctx, uploadID)
-		refusal := refusedName(err)
-		if refusal == "" || !d.create || d.project.Source != target.Picked || !d.a.UI.CanAsk() {
+		refusal, refused := fail.Refusal(err)
+		if !refused || !d.create || d.project.Source != target.Picked || !d.a.UI.CanAsk() {
 			return started, err
 		}
 		d.a.UI.Problem("%s", refusal)
