@@ -24,9 +24,9 @@ func tunnelCommand(a *app.App) *cobra.Command {
 		Short: "Bring a service's port to localhost, as a database to your laptop",
 		Long: `Opens a port on this computer that leads to a service's port in its container, over SSH.
 
-Only this computer reaches it: it listens on localhost alone. The local port is the service's
-own, or the next free one, which the first line says; --local picks it. Without a port the
-service's only one is taken. Ctrl-C closes the tunnel.`,
+Only this computer reaches it, at 127.0.0.1 and the port the first line says: the service's
+own, or the next free one; --local picks it. Without a port the service's only one is taken.
+Ctrl-C closes the tunnel.`,
 		Example: `  pethost tunnel db
   pethost tunnel db:5432
   pethost tunnel db --local 15432`,
@@ -193,14 +193,16 @@ func (t *tunnel) listen(local int) (listeners []net.Listener, opened int, err er
 	return listeners, opened, nil
 }
 
-// say writes the tunnel's line, and to stdout, where a program reads it, the address alone.
+// say writes the tunnel's line, and to stdout, where a program reads it, the address alone. Its
+// host is remote.Host, which every client reaches over TCP, as not every one does localhost.
 func (t *tunnel) say(f facts, opened, asked int) error {
 	a := t.a
+	address := net.JoinHostPort(remote.Host, strconv.Itoa(opened))
 	aside := ""
 	if asked == 0 && opened != int(t.port) {
 		aside = fmt.Sprintf(" (%d is not free here)", t.port)
 	}
-	a.UI.Done("localhost:%d → %s:%d on your machine%s. Ctrl-C closes it.", opened, ui.Clean(t.service), t.port, aside)
+	a.UI.Done("%s → %s:%d on your machine%s. Ctrl-C closes it.", address, ui.Clean(t.service), t.port, aside)
 	if service := serviceOf(f.project, t.service); service != nil && !service.ContainerRunning {
 		a.UI.Info("  %s is %s now: the machine refuses connections to it until it runs.", ui.Clean(t.service), say.State(service.State))
 	}
@@ -209,7 +211,7 @@ func (t *tunnel) say(f facts, opened, asked int) error {
 	case a.JSON:
 		return a.PrintJSON(map[string]any{"local_port": opened, "service": t.service, "port": t.port})
 	case !a.UI.Out.Terminal || a.UI.Quiet:
-		fmt.Fprintf(a.UI.Out, "localhost:%d\n", opened)
+		fmt.Fprintln(a.UI.Out, address)
 	}
 	return nil
 }

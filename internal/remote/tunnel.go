@@ -9,11 +9,16 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+// Host is where a tunnel is always open, and so the host of the address it is given at: every
+// client takes it for TCP, while a MySQL client takes "localhost" for its Unix socket and never
+// reaches the port.
+const Host = "127.0.0.1"
+
 // Listen opens a port on this computer for a tunnel, reachable from this computer alone:
-// 127.0.0.1 and, where the computer has IPv6, ::1 as well, since many programs take "localhost"
-// for the second. port 0 = one the system picks. It returns the port opened.
+// Host and, where the computer has IPv6, ::1 as well, since many programs take "localhost" for
+// the second. port 0 = one the system picks. It returns the port opened.
 func Listen(port int) (listeners []net.Listener, opened int, err error) {
-	v4, err := net.Listen("tcp4", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)))
+	v4, err := net.Listen("tcp4", net.JoinHostPort(Host, strconv.Itoa(port)))
 	if err != nil {
 		return nil, 0, err
 	}

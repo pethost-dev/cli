@@ -338,10 +338,10 @@ brings its port to your laptop for as long as the command runs:
 ```
 $ pethost tunnel db
 recipes (.pethost)
-✓ localhost:5432 → db:5432 on your machine. Ctrl-C closes it.
+✓ 127.0.0.1:5432 → db:5432 on your machine. Ctrl-C closes it.
 ```
 
-Now a program on your laptop, as `psql -h localhost -U postgres`, talks to the database on your
+Now a program on your laptop, as `psql -h 127.0.0.1 -U postgres`, talks to the database on your
 machine. For one command, no tunnel is needed:
 
 ```sh
@@ -552,8 +552,8 @@ agent or from a web panel: both show the same projects, logs and requests.
 - **Nightly backups:** encrypted, stored off the machine, kept for 14 days.
 - **SSH and SFTP** into any container, and a terminal in the panel.
 - **Docker Compose, as written:** a project is a Compose file, and the same file runs anywhere
-  else Docker does. A database is one click, Postgres or Valkey, with a page for connecting
-  your apps, at no extra cost.
+  else Docker does. A database is one click, Postgres, MariaDB or Valkey, with a page for
+  connecting your apps, at no extra cost.
 - **In the EU:** your data lives on your machine, and requests to your sites go straight to
   it, never through our panel.
 
