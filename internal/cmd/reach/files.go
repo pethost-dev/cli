@@ -45,10 +45,7 @@ A file that is not text is not written to a terminal: pethost cp copies it.`,
 		if err != nil {
 			return err
 		}
-		client, err := a.Client()
-		if err != nil {
-			return err
-		}
+		client := a.Client()
 		where := parsePlace(firstOf(args))
 		if err := where.locate(ctx, a, client, project, flags); err != nil {
 			return err

@@ -80,10 +80,7 @@ func runLogs(cmd *cobra.Command, a *app.App, flags logFlags) error {
 	if err != nil {
 		return err
 	}
-	client, err := a.Client()
-	if err != nil {
-		return err
-	}
+	client := a.Client()
 
 	l := &logs{ctx: ctx, a: a, client: client, project: project, flags: flags, since: from, printer: &logPrinter{out: a.UI.Out}}
 	cursor, err := l.past()

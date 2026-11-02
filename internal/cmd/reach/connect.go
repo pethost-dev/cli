@@ -85,11 +85,7 @@ func giveKey(ctx context.Context, a *app.App, machine *pethost.Machine, key *rem
 		return nil
 	}
 
-	client, err := a.Client()
-	if err != nil {
-		return err
-	}
-	_, err = client.RunMachineAction(ctx, &pethost.RunMachineActionRequest{
+	_, err := a.Client().RunMachineAction(ctx, &pethost.RunMachineActionRequest{
 		Action: pethost.RunMachineActionAddSSHKey{PublicKey: key.PublicKey, Label: keyLabel()},
 	})
 	if err != nil {

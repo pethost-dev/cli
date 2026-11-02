@@ -119,8 +119,8 @@ func (f *Folder) Lines(name string) []string {
 	return lines
 }
 
-// Env are the variables of a dotenv file, as Compose reads them and the machine gives them to
-// the container; none when it is not there.
+// Env are the variables of a dotenv file (dotenv.Values), which the machine gives the container;
+// none when it is not there.
 func (f *Folder) Env(name string) map[string]string {
 	content, _ := f.Read(name)
 	return dotenv.Values(string(content))

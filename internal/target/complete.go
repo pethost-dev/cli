@@ -64,14 +64,13 @@ func projectsNow(ctx context.Context, a *app.App) []pethost.ProjectSummary {
 
 // MachineNow is the machine's answer for a Tab, nil when it cannot be had in time.
 func MachineNow(ctx context.Context, a *app.App) *pethost.GetMachineResponse {
-	client, err := a.Client()
-	if err != nil {
+	if a.NeedSignIn() != nil {
 		return nil
 	}
 	ctx, cancel := context.WithTimeout(ctx, completionWait)
 	defer cancel()
 
-	machine, err := client.GetMachine(ctx, nil)
+	machine, err := a.Client().GetMachine(ctx, nil)
 	if err != nil {
 		return nil
 	}

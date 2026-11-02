@@ -69,10 +69,7 @@ var rollbackWords = operation.Words{Doing: "Going back…", Failed: "Rollback fa
 // and goes back on that read: a deploy in between makes the machine refuse it, and it runs
 // again.
 func (r *rollback) run(ctx context.Context) error {
-	client, err := r.a.Client()
-	if err != nil {
-		return err
-	}
+	client := r.a.Client()
 	answer, err := client.GetProject(ctx, &pethost.GetProjectRequest{ProjectID: r.project.ID})
 	if err != nil {
 		return err
@@ -113,7 +110,7 @@ func (r *rollback) toDeploy(ctx context.Context, project *pethost.Project) error
 	if at := deployedAt(version); !at.IsZero() {
 		which = "the version deployed " + screen.Err.When(at)
 	}
-	screen.Done("Back on %s, in %s.", which, done.took())
+	screen.Done("Back on %s, in %s.", which, done.Took())
 	screen.Info("  %s", whatStays)
 	// Whether the folder's code is newer than this version the machine does not say: a rollback
 	// of a rollback goes forward, and another computer may have deployed last.
@@ -127,9 +124,9 @@ func (r *rollback) toDeploy(ctx context.Context, project *pethost.Project) error
 
 // said ends a rollback that went well. The machine's own notes of it say what the lines above
 // have said (whose files it took, that /.env and x-pethost were kept), so they are left out.
-func (r *rollback) said(done *outcome) error {
+func (r *rollback) said(done *operation.Result) error {
 	if r.a.JSON {
-		return r.a.PrintJSON(done.answer)
+		return r.a.PrintJSON(done.Answer)
 	}
 	done.Problems(r.a)
 	return nil

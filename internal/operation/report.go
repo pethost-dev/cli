@@ -33,7 +33,23 @@ func (r *Result) Report(ctx context.Context, a *app.App, project target.Project,
 		return r.failed(ctx, a, project, words)
 	}
 
-	a.UI.Done("%s in %s", words.Done, ui.Duration(Took(r.Operation)))
+	a.UI.Done("%s in %s", words.Done, r.Took())
+	r.Notes(a)
+	r.Problems(a)
+	return nil
+}
+
+// Took is how long the operation ran, in words: "6 s".
+func (r *Result) Took() string {
+	return ui.Duration(Took(r.Operation))
+}
+
+// Said ends a change that went well: the machine's own lines and the project's problems under
+// the command's line, or with --json the last call's answer.
+func (r *Result) Said(a *app.App) error {
+	if a.JSON {
+		return a.PrintJSON(r.Answer)
+	}
 	r.Notes(a)
 	r.Problems(a)
 	return nil
@@ -174,10 +190,10 @@ func (r *Result) evidence(ctx context.Context, a *app.App, project target.Projec
 		return r.Log, true
 	}
 
-	for _, line := range r.Answer.Log {
+	for _, line := range r.LogEnd {
 		lines = append(lines, ui.Clean(line.Text))
 	}
-	return lines, uint32(len(lines)) == r.Answer.LogLineCount
+	return lines, uint32(len(lines)) == r.LogLineCount
 }
 
 // serviceOutput is what the failed service's container printed in its last run, each line as
@@ -190,12 +206,11 @@ func (r *Result) serviceOutput(ctx context.Context, a *app.App, project target.P
 		return nil
 	}
 	lastRun := r.lastRunStart(operation.Service)
-	client, err := a.Client()
-	if err != nil || lastRun.IsZero() {
+	if lastRun.IsZero() {
 		return nil
 	}
 
-	logs, err := client.QueryContainerLogs(ctx, &pethost.QueryContainerLogsRequest{
+	logs, err := a.Client().QueryContainerLogs(ctx, &pethost.QueryContainerLogsRequest{
 		ProjectID: project.ID,
 		Filter:    &pethost.ContainerLogFilter{Service: operation.Service},
 		StartTime: lastRun,

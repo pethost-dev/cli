@@ -37,10 +37,7 @@ func runDeployLog(cmd *cobra.Command, a *app.App, flags logFlags) error {
 	if err != nil {
 		return err
 	}
-	client, err := a.Client()
-	if err != nil {
-		return err
-	}
+	client := a.Client()
 
 	answer, err := client.GetProject(ctx, &pethost.GetProjectRequest{ProjectID: project.ID})
 	if err != nil {
@@ -203,6 +200,6 @@ func (d *deployLog) report() error {
 	}
 
 	which := deployWords(answer.Operation)
-	result := &operation.Result{Operation: answer.Operation, Project: answer.Project, Answer: answer, LogShown: true}
+	result := &operation.Result{Operation: answer.Operation, Project: answer.Project, LogShown: true}
 	return result.Report(d.ctx, d.a, d.project, operation.Words{Done: which + " succeeded", Failed: which + " failed"})
 }

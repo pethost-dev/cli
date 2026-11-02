@@ -4,7 +4,7 @@
 //
 // Each command is a file of its own, the larger ones several. What they share: deploy.go, a
 // change that is a deploy (DeployProject); action.go, one that is an action of the project
-// (RunProjectAction); outcome.go, the operation either starts, taken to its end; words.go, a
+// (RunProjectAction); finish.go, the operation either starts, taken to its end; words.go, a
 // name as a command's word and names as a sentence; and complete.go, what a Tab completes from
 // the machine's answer. The machine owns the facts and the rules: a command reads what it shows,
 // sends what was asked, and prints the machine's refusal as the machine wrote it.

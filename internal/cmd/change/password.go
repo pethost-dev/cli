@@ -85,7 +85,7 @@ func setPassword(ctx context.Context, a *app.App, project target.Project, noQueu
 		}
 		sayWaitingHosts(a, done.Project)
 		a.UI.Info("  To take it away:  %s", a.UI.Err.Bold("pethost password off"+project.Flag()))
-		return done.said(a)
+		return done.Said(a)
 	}
 }
 
@@ -105,10 +105,7 @@ func sayWaitingHosts(a *app.App, project *pethost.Project) {
 // removePassword takes the password away. The machine is asked first whether there is one: a
 // site that has none is not asked about.
 func removePassword(ctx context.Context, a *app.App, project target.Project, noQueue bool) error {
-	client, err := a.Client()
-	if err != nil {
-		return err
-	}
+	client := a.Client()
 	answer, err := client.GetProject(ctx, &pethost.GetProjectRequest{ProjectID: project.ID})
 	if err != nil {
 		return err
@@ -116,6 +113,9 @@ func removePassword(ctx context.Context, a *app.App, project target.Project, noQ
 	id := ui.Clean(project.ID)
 	if !answer.Project.PasswordProtected {
 		a.UI.Info("%s has no password: nothing changed.", id)
+		if a.JSON {
+			return a.PrintJSON(answer)
+		}
 		return nil
 	}
 
@@ -130,5 +130,5 @@ func removePassword(ctx context.Context, a *app.App, project target.Project, noQ
 		return err
 	}
 	a.UI.Done("%s has no password now: its addresses are open to everyone.", id)
-	return done.said(a)
+	return done.Said(a)
 }

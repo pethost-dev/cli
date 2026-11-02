@@ -94,21 +94,28 @@ func (a *App) SignedIn() {
 	a.signIn, a.client = nil, nil
 }
 
-// Client is the SDK's client, made on first use. Without a sign-in it is fail.NotSignedIn.
-func (a *App) Client() (*pethost.Client, error) {
-	if a.client != nil {
-		return a.client, nil
-	}
-
+// NeedSignIn is nil when the run has a sign-in to call with, and otherwise fail.NotSignedIn. A
+// command asks it before it asks the person anything; internal/target does for every command that
+// means a project.
+func (a *App) NeedSignIn() error {
 	current, err := a.SignIn()
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if current.Token == "" {
-		return nil, fail.NotSignedIn()
+		return fail.NotSignedIn()
 	}
-	a.client = pethost.NewClient(pethost.Config{Token: current.Token, BaseURL: current.URL, HTTPClient: a.debugClient()})
-	return a.client, nil
+	return nil
+}
+
+// Client is the SDK's client, made on first use. Past NeedSignIn it has the token; a command that
+// missed that gate calls without one, and the panel's refusal then says to sign in.
+func (a *App) Client() *pethost.Client {
+	if a.client == nil {
+		current, _ := a.SignIn()
+		a.client = pethost.NewClient(pethost.Config{Token: current.Token, BaseURL: current.URL, HTTPClient: a.debugClient()})
+	}
+	return a.client
 }
 
 // PrintJSON writes a command's answer for --json: the SDK's value as the API's JSON, on one

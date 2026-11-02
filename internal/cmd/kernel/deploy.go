@@ -173,8 +173,11 @@ func (d *deploy) signIn(ctx context.Context) error {
 	}
 
 	d.a.SayToken()
-	d.client, err = d.a.Client()
-	return err
+	if err := d.a.NeedSignIn(); err != nil {
+		return err
+	}
+	d.client = d.a.Client()
+	return nil
 }
 
 // chooseFolder settles which folder is deployed: the one named; else, when nothing names the

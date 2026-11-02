@@ -87,7 +87,7 @@ func (d *deletion) run(ctx context.Context) error {
 		return err
 	}
 	if d.a.JSON {
-		return d.a.PrintJSON(done.answer)
+		return d.a.PrintJSON(done.Answer)
 	}
 	d.sayDeleted(done, state)
 	return nil
@@ -161,9 +161,9 @@ func volumeSizes(project *pethost.Project) string {
 
 // sayDeleted writes that the project is gone and, when a snapshot of it stays, the command
 // that brings it back.
-func (d *deletion) sayDeleted(done *outcome, state *backupState) {
+func (d *deletion) sayDeleted(done *operation.Result, state *backupState) {
 	screen, id := d.a.UI, ui.Clean(d.project.ID)
-	screen.Done("Deleted %s in %s.", id, done.took())
+	screen.Done("Deleted %s in %s.", id, done.Took())
 
 	switch snapshot := done.Operation.SnapshotID; {
 	case snapshot != "":

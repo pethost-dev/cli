@@ -126,10 +126,10 @@ func callAPI(ctx context.Context, a *app.App, name string, rest []string) error 
 	if err != nil {
 		return err
 	}
-	client, err := a.Client()
-	if err != nil {
+	if err := a.NeedSignIn(); err != nil {
 		return err
 	}
+	client := a.Client()
 
 	results := method.Func.Call([]reflect.Value{reflect.ValueOf(client), reflect.ValueOf(ctx), request})
 	if len(results) == 1 {

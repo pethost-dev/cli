@@ -60,10 +60,7 @@ func waitFor(ctx context.Context, a *app.App, project target.Project, busy *peth
 	live := a.UI.Live("Waiting for its turn…")
 	defer live.Stop()
 
-	client, err := a.Client()
-	if err != nil {
-		return err
-	}
+	client := a.Client()
 	if busy.OperationID == "" {
 		return pause(ctx)
 	}

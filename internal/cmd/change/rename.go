@@ -42,7 +42,7 @@ see the id.`,
 		} else {
 			a.UI.Done("%s is called %s now.", ui.Clean(project.ID), a.UI.Err.Bold(ui.Clean(args[0])))
 		}
-		return done.said(a)
+		return done.Said(a)
 	}
 	return cmd
 }

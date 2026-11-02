@@ -180,7 +180,7 @@ func removeVariables(text string, names []string) (string, string) {
 
 // sayEnvStays says, under a deploy that failed after it made the files the project's, that the
 // new /.env is among them: a rollback, which the failure's lines name, leaves /.env as it is.
-func sayEnvStays(a *app.App, failed *outcome) {
+func sayEnvStays(a *app.App, failed *operation.Result) {
 	if failed != nil && failed.Operation.MadeCurrent && !a.JSON {
 		a.UI.ErrLine("  " + envPath + " keeps this change: a rollback does not bring the earlier " + envPath + " back.")
 	}
@@ -191,14 +191,11 @@ var envWords = operation.Words{Doing: "Deploying…", Failed: "Deploy failed"}
 // editEnv reads the project's /.env, edits its text and deploys it. edit returns the text as
 // it is to be and what to say of it; the same text back means there is nothing to deploy.
 func editEnv(ctx context.Context, a *app.App, project target.Project, noQueue bool, edit func(text string) (changed, says string)) error {
-	client, err := a.Client()
-	if err != nil {
-		return err
-	}
+	client := a.Client()
 
-	var done *outcome
+	var done *operation.Result
 	var says string
-	err = againIfChanged(func() error {
+	err := againIfChanged(func() error {
 		env, err := readEnv(ctx, client, project.ID)
 		if err != nil {
 			return err
@@ -221,12 +218,15 @@ func editEnv(ctx context.Context, a *app.App, project target.Project, noQueue bo
 	}
 	if done == nil {
 		a.UI.Info("%s", says)
+		if a.JSON {
+			return printProject(ctx, a, client, project.ID)
+		}
 		return nil
 	}
 
-	a.UI.Done("%s Deployed in %s.", says, done.took())
+	a.UI.Done("%s Deployed in %s.", says, done.Took())
 	if line := nobodyReadsLine(done.Project); line != "" {
 		a.UI.Info("  %s", line)
 	}
-	return done.said(a)
+	return done.Said(a)
 }

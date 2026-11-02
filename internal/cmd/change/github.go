@@ -77,14 +77,14 @@ func connectGithub(ctx context.Context, a *app.App, noQueue bool, source pethost
 		return nil
 	}
 
-	call := started{operation: answer.Operation, project: answer.Project, log: answer.Log, answer: answer}
+	call := &operation.Result{Operation: answer.Operation, Project: answer.Project, LogEnd: answer.Log, Answer: answer}
 	done, err := finish(ctx, a, project, call, operation.Words{Doing: "Deploying its newest commit…", Failed: "Deploy failed"})
 	if err != nil {
 		return err
 	}
-	a.UI.Done("Deployed commit %s in %s.", commitWords(done.Operation.GithubCommit, ""), done.took())
+	a.UI.Done("Deployed commit %s in %s.", commitWords(done.Operation.GithubCommit, ""), done.Took())
 	saySource(a, done.Project)
-	return done.said(a)
+	return done.Said(a)
 }
 
 // githubOffCommand is `pethost github off`.
@@ -126,10 +126,10 @@ func showGithub(ctx context.Context, a *app.App) error {
 	if err != nil {
 		return err
 	}
-	client, err := a.Client()
-	if err != nil {
+	if err := a.NeedSignIn(); err != nil {
 		return err
 	}
+	client := a.Client()
 
 	var machine *pethost.GetMachineResponse
 	var answer *pethost.GetProjectResponse

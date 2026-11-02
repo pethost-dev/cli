@@ -151,10 +151,7 @@ func Explain(ctx context.Context, a *app.App, failure error) error {
 	if err != nil || !named || project.Source != FromFile {
 		return failure
 	}
-	client, err := a.Client()
-	if err != nil {
-		return failure
-	}
+	client := a.Client()
 	machine, err := client.GetMachine(ctx, nil)
 	if err != nil {
 		return failure

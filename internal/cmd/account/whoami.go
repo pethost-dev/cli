@@ -31,10 +31,10 @@ sign-in. The token itself is never printed.`,
 }
 
 func whoami(ctx context.Context, a *app.App) error {
-	client, err := a.Client()
-	if err != nil {
+	if err := a.NeedSignIn(); err != nil {
 		return err
 	}
+	client := a.Client()
 	current, err := a.SignIn()
 	if err != nil {
 		return err

@@ -87,7 +87,7 @@ func (r *restore) run(ctx context.Context) error {
 		return err
 	}
 	if r.a.JSON {
-		return r.a.PrintJSON(done.answer)
+		return r.a.PrintJSON(done.Answer)
 	}
 	r.sayRestored(done, state.project == nil)
 	return nil
@@ -136,10 +136,7 @@ func volumesNamed(volumes []string) string {
 // findSnapshot is the project's snapshot of the id given, or of the only id that starts with
 // it, looked for page by page from the newest until every snapshot the machine counts was seen.
 func (r *restore) findSnapshot(ctx context.Context, project *pethost.Project) (pethost.Snapshot, error) {
-	client, err := r.a.Client()
-	if err != nil {
-		return pethost.Snapshot{}, err
-	}
+	client := r.a.Client()
 
 	var fits []pethost.Snapshot
 	seen := 0
@@ -192,15 +189,15 @@ func (r *restore) bringBack(deleted *pethost.DeletedProject) string {
 }
 
 // sayRestored writes what the restore did, by the operation's own facts.
-func (r *restore) sayRestored(done *outcome, broughtBack bool) {
+func (r *restore) sayRestored(done *operation.Result, broughtBack bool) {
 	screen, id := r.a.UI, ui.Clean(r.project.ID)
 	switch {
 	case broughtBack:
-		screen.Done("%s is back, in %s.", id, done.took())
+		screen.Done("%s is back, in %s.", id, done.Took())
 	case len(done.Operation.RestoredVolumes) > 0:
-		screen.Done("Restored %s of %s in %s.", volumesNamed(done.Operation.RestoredVolumes), id, done.took())
+		screen.Done("Restored %s of %s in %s.", volumesNamed(done.Operation.RestoredVolumes), id, done.Took())
 	default:
-		screen.Done("Restored %s in %s.", id, done.took())
+		screen.Done("Restored %s in %s.", id, done.Took())
 	}
 	if undo := done.Operation.UndoSnapshotID; undo != "" {
 		screen.Info("  It was backed up first. To undo:  %s", screen.Err.Bold("pethost backup restore "+shortID(undo)+r.project.Flag()))

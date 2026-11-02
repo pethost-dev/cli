@@ -65,8 +65,8 @@ var routeWords = operation.Words{Doing: "Changing the addresses…", Failed: "Th
 
 func (d *domainAdd) run(ctx context.Context) error {
 	var route pethost.Route
-	var before *pethost.Project
-	var done *outcome
+	var before *pethost.GetProjectResponse
+	var done *operation.Result
 	err := againIfChanged(func() error {
 		// The project's routes are what the change is made of; the machine's name is what a DNS
 		// record points at.
@@ -75,20 +75,20 @@ func (d *domainAdd) run(ctx context.Context) error {
 			return err
 		}
 		d.machine = machine
-		before = answer.Project
+		before = answer
 
-		to, err := d.leadsTo(before)
+		to, err := d.leadsTo(before.Project)
 		if err != nil {
 			return err
 		}
 		route = pethost.Route{Host: d.host, Service: to.service, Port: to.port}
 
-		routes, changed := withRoute(before.Routes, route)
+		routes, changed := withRoute(before.Project.Routes, route)
 		if !changed {
 			return nil
 		}
 		done, err = deploy(ctx, d.a, d.project, d.noQueue, &pethost.DeployProjectRequest{
-			BaseDeployID: before.DeployID,
+			BaseDeployID: before.Project.DeployID,
 			XPethost:     &pethost.ProjectExtension{Routes: routes},
 		}, routeWords)
 		return err
@@ -99,10 +99,13 @@ func (d *domainAdd) run(ctx context.Context) error {
 
 	if done == nil {
 		d.a.UI.Info("%s already leads to %s.", ui.Clean(route.Host), routeTarget(route))
-		return d.sayHost(before, route)
+		if d.a.JSON {
+			return d.a.PrintJSON(before)
+		}
+		return d.sayHost(before.Project, route)
 	}
 	if d.a.JSON {
-		return d.a.PrintJSON(done.answer)
+		return d.a.PrintJSON(done.Answer)
 	}
 	d.a.UI.Done("%s → %s", ui.Clean(route.Host), routeTarget(route))
 	done.Notes(d.a)

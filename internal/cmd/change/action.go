@@ -17,10 +17,7 @@ import (
 // act runs one action in the project's turn. doing is what the spinner says while the call
 // lasts, which for a stop is as long as the services take to stop.
 func act(ctx context.Context, a *app.App, project target.Project, noQueue bool, doing string, action pethost.RunProjectActionAction) (*pethost.RunProjectActionResponse, error) {
-	client, err := a.Client()
-	if err != nil {
-		return nil, err
-	}
+	client := a.Client()
 
 	answer, err := operation.Queue(ctx, a, project, noQueue, func() (*pethost.RunProjectActionResponse, error) {
 		live := a.UI.Live(doing)
@@ -39,12 +36,12 @@ func act(ctx context.Context, a *app.App, project target.Project, noQueue bool, 
 }
 
 // operate runs an action that is an operation and takes the operation to its end.
-func operate(ctx context.Context, a *app.App, project target.Project, noQueue bool, action pethost.RunProjectActionAction, words operation.Words) (*outcome, error) {
+func operate(ctx context.Context, a *app.App, project target.Project, noQueue bool, action pethost.RunProjectActionAction, words operation.Words) (*operation.Result, error) {
 	answer, err := act(ctx, a, project, noQueue, words.Doing, action)
 	if err != nil {
 		return nil, err
 	}
 
-	call := started{operation: answer.Operation, project: answer.Project, log: answer.Log, answer: answer}
+	call := &operation.Result{Operation: answer.Operation, Project: answer.Project, LogEnd: answer.Log, Answer: answer}
 	return finish(ctx, a, project, call, words)
 }

@@ -24,14 +24,14 @@ func Together(calls ...func() error) error {
 
 // MachineAndProject asks for the machine and for one project at once.
 func (a *App) MachineAndProject(ctx context.Context, projectID string) (*pethost.GetMachineResponse, *pethost.GetProjectResponse, error) {
-	client, err := a.Client()
-	if err != nil {
+	if err := a.NeedSignIn(); err != nil {
 		return nil, nil, err
 	}
+	client := a.Client()
 
 	var machine *pethost.GetMachineResponse
 	var project *pethost.GetProjectResponse
-	err = Together(
+	err := Together(
 		func() (err error) {
 			machine, err = client.GetMachine(ctx, nil)
 			return err

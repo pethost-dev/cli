@@ -52,10 +52,10 @@ Name it by its fingerprint, by the fingerprint's start, or by its label.`,
 
 func removeKey(ctx context.Context, a *app.App, named string) error {
 	a.SayToken()
-	client, err := a.Client()
-	if err != nil {
+	if err := a.NeedSignIn(); err != nil {
 		return err
 	}
+	client := a.Client()
 	before, err := client.GetMachine(ctx, nil)
 	if err != nil {
 		return err
@@ -176,10 +176,10 @@ the key away.`,
 
 func endSession(ctx context.Context, a *app.App, id string) error {
 	a.SayToken()
-	client, err := a.Client()
-	if err != nil {
+	if err := a.NeedSignIn(); err != nil {
 		return err
 	}
+	client := a.Client()
 	answer, err := client.RunMachineAction(ctx, &pethost.RunMachineActionRequest{Action: pethost.RunMachineActionEndSessionID(id)})
 	if err != nil {
 		return err

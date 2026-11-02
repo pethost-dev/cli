@@ -92,10 +92,10 @@ func restartMoment(at string, now time.Time) (restartWhen, error) {
 
 func restartMachine(ctx context.Context, a *app.App, when restartWhen) error {
 	a.SayToken()
-	client, err := a.Client()
-	if err != nil {
+	if err := a.NeedSignIn(); err != nil {
 		return err
 	}
+	client := a.Client()
 
 	said := "now"
 	switch {
@@ -131,10 +131,10 @@ func restartMachine(ctx context.Context, a *app.App, when restartWhen) error {
 
 func cancelRestart(ctx context.Context, a *app.App) error {
 	a.SayToken()
-	client, err := a.Client()
-	if err != nil {
+	if err := a.NeedSignIn(); err != nil {
 		return err
 	}
+	client := a.Client()
 	answer, err := client.RunMachineAction(ctx, &pethost.RunMachineActionRequest{Action: pethost.RunMachineActionCancelRestart(true)})
 	if err != nil {
 		return err

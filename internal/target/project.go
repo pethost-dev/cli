@@ -74,9 +74,11 @@ func NamedOutright(a *app.App) (Project, bool) {
 
 // ForChange is the project a command that changes something means. A .pethost is checked
 // against the machine first: one written for another account, or for a project that is gone,
-// is asked about and never acted on by itself.
+// is asked about and never acted on by itself. A project is a machine's, so a command that means
+// one says "not signed in" here, before it asks for anything: a password is not typed for a
+// command that cannot use it.
 func ForChange(ctx context.Context, a *app.App) (Project, error) {
-	if err := signedIn(a); err != nil {
+	if err := a.NeedSignIn(); err != nil {
 		return Project{}, err
 	}
 	a.SayToken()
@@ -100,7 +102,7 @@ func ForChange(ctx context.Context, a *app.App) (Project, error) {
 // ForRead is the project a command that only reads means: as ForChange, and with nothing named
 // the machine's only project.
 func ForRead(ctx context.Context, a *app.App) (Project, error) {
-	if err := signedIn(a); err != nil {
+	if err := a.NeedSignIn(); err != nil {
 		return Project{}, err
 	}
 	project, named, err := Named(a)
@@ -112,14 +114,6 @@ func ForRead(ctx context.Context, a *app.App) (Project, error) {
 	}
 	Announce(a, project)
 	return project, nil
-}
-
-// signedIn is nil when the run has a sign-in to call with. A project is a machine's, so a
-// command that means one says "not signed in" here, before it asks for anything: a password is
-// not typed for a command that cannot use it.
-func signedIn(a *app.App) error {
-	_, err := a.Client()
-	return err
 }
 
 // Announce writes where a command's project came from, as its first line on stderr; nothing
@@ -152,10 +146,7 @@ func fileFromHere(file *File) string {
 // choose finds the project when nothing names one: the machine's only one for a read, else the
 // person's pick, else a refusal that names the command for each.
 func choose(ctx context.Context, a *app.App, read bool) (Project, error) {
-	client, err := a.Client()
-	if err != nil {
-		return Project{}, err
-	}
+	client := a.Client()
 	machine, err := client.GetMachine(ctx, nil)
 	if err != nil {
 		return Project{}, err
@@ -210,10 +201,7 @@ func Title(metadata *pethost.ProjectMetadata) string {
 
 // checkFile holds a .pethost against the machine of the account signed in.
 func checkFile(ctx context.Context, a *app.App, file *File) error {
-	client, err := a.Client()
-	if err != nil {
-		return err
-	}
+	client := a.Client()
 	machine, err := client.GetMachine(ctx, nil)
 	if err != nil {
 		return err

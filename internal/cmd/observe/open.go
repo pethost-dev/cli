@@ -45,10 +45,7 @@ func runOpen(cmd *cobra.Command, a *app.App, named string) error {
 	if err != nil {
 		return err
 	}
-	client, err := a.Client()
-	if err != nil {
-		return err
-	}
+	client := a.Client()
 	answer, err := client.GetProject(ctx, &pethost.GetProjectRequest{ProjectID: project.ID})
 	if err != nil {
 		return err

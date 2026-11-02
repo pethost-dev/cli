@@ -39,7 +39,7 @@ func (r *rollback) toCommit(ctx context.Context, client *pethost.Client, project
 	}
 
 	screen := r.a.UI
-	screen.Done("Back on commit %s, in %s.", commitWords(done.Operation.GithubCommit, sha), done.took())
+	screen.Done("Back on commit %s, in %s.", commitWords(done.Operation.GithubCommit, sha), done.Took())
 	screen.Info("  %s", whatStays)
 	if now, ok := githubSource(done.Project); ok && now.AutoDeploy != nil && !*now.AutoDeploy {
 		follow := "pethost github " + ui.Clean(text(github.Repository)) + r.project.Flag()

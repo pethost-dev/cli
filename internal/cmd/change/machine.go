@@ -45,10 +45,10 @@ now. The plan itself is changed in the panel.`,
 
 // showMachine reads the machine and prints of it what print does; with --json, the API's answer.
 func showMachine(ctx context.Context, a *app.App, print func(machine *pethost.Machine)) error {
-	client, err := a.Client()
-	if err != nil {
+	if err := a.NeedSignIn(); err != nil {
 		return err
 	}
+	client := a.Client()
 	answer, err := client.GetMachine(ctx, nil)
 	if err != nil {
 		return err

@@ -32,10 +32,7 @@ func (c *copying) in(ctx context.Context, from string, to place) error {
 	if err != nil {
 		return err
 	}
-	client, err := c.a.Client()
-	if err != nil {
-		return err
-	}
+	client := c.a.Client()
 	if err := to.locate(ctx, c.a, client, project, c.flags); err != nil {
 		return err
 	}

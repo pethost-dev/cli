@@ -47,10 +47,10 @@ func lsCommand(a *app.App) *cobra.Command {
 }
 
 func showMachine(ctx context.Context, a *app.App) error {
-	client, err := a.Client()
-	if err != nil {
+	if err := a.NeedSignIn(); err != nil {
 		return err
 	}
+	client := a.Client()
 	machine, err := client.GetMachine(ctx, nil)
 	if err != nil {
 		return err

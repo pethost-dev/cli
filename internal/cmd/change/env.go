@@ -54,10 +54,7 @@ func listEnv(ctx context.Context, a *app.App) error {
 	if err != nil {
 		return err
 	}
-	client, err := a.Client()
-	if err != nil {
-		return err
-	}
+	client := a.Client()
 
 	var env *projectEnv
 	var answer *pethost.GetProjectResponse
@@ -98,6 +95,16 @@ func listEnv(ctx context.Context, a *app.App) error {
 	return nil
 }
 
+// printProject is --json's answer to a change of /.env that was already so: the project, whose
+// secret values the API leaves out, where the file's own text holds them.
+func printProject(ctx context.Context, a *app.App, client *pethost.Client, projectID string) error {
+	answer, err := client.GetProject(ctx, &pethost.GetProjectRequest{ProjectID: projectID})
+	if err != nil {
+		return err
+	}
+	return a.PrintJSON(answer)
+}
+
 // sayNoVariables says that the project's /.env sets nothing, or is not there, and how to set a
 // first variable.
 func sayNoVariables(a *app.App, project target.Project, env *projectEnv) {
@@ -128,10 +135,7 @@ func showEnvFile(ctx context.Context, a *app.App) error {
 	if err != nil {
 		return err
 	}
-	client, err := a.Client()
-	if err != nil {
-		return err
-	}
+	client := a.Client()
 
 	if a.JSON {
 		answer, err := client.ReadPath(ctx, &pethost.ReadPathRequest{ProjectID: project.ID, Path: envPath, LengthBytes: readChunk})

@@ -60,10 +60,10 @@ snapshot's id.`,
 			return err
 		}
 		if a.JSON {
-			return a.PrintJSON(done.answer)
+			return a.PrintJSON(done.Answer)
 		}
 
-		a.UI.Done("Backed up %s in %s. The snapshot:", ui.Clean(project.ID), done.took())
+		a.UI.Done("Backed up %s in %s. The snapshot:", ui.Clean(project.ID), done.Took())
 		_, err = fmt.Fprintln(a.UI.Out, ui.Clean(done.Operation.SnapshotID))
 		return err
 	}
@@ -84,13 +84,10 @@ type backupState struct {
 // readBackupState asks for the machine and the project at once. A project that is not there is
 // not a failure yet: a deleted one's snapshots remain, and the machine lists them.
 func readBackupState(ctx context.Context, a *app.App, projectID string) (*backupState, error) {
-	client, err := a.Client()
-	if err != nil {
-		return nil, err
-	}
+	client := a.Client()
 
 	state := &backupState{}
-	err = app.Together(
+	err := app.Together(
 		func() (err error) {
 			state.machine, err = client.GetMachine(ctx, nil)
 			return err

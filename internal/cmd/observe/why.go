@@ -53,10 +53,7 @@ func runWhy(ctx context.Context, a *app.App) error {
 	if err != nil {
 		return err
 	}
-	client, err := a.Client()
-	if err != nil {
-		return err
-	}
+	client := a.Client()
 
 	w := &why{ctx: ctx, a: a, client: client, project: project}
 	if err := w.ask(); err != nil {

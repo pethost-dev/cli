@@ -74,16 +74,14 @@ type envPush struct {
 }
 
 func (p *envPush) run(ctx context.Context) error {
-	client, err := p.a.Client()
-	if err != nil {
-		return err
-	}
-	p.local, err = os.ReadFile(p.path)
+	client := p.a.Client()
+	local, err := os.ReadFile(p.path)
 	if err != nil {
 		return p.unreadable(err)
 	}
+	p.local = local
 
-	var done *outcome
+	var done *operation.Result
 	err = againIfChanged(func() error {
 		env, err := readEnv(ctx, client, p.project.ID)
 		if err != nil {
@@ -108,14 +106,17 @@ func (p *envPush) run(ctx context.Context) error {
 	}
 	if done == nil {
 		p.a.UI.Info("The %s of %s is %s already: nothing changed.", envPath, ui.Clean(p.project.ID), p.name())
+		if p.a.JSON {
+			return printProject(ctx, p.a, client, p.project.ID)
+		}
 		return nil
 	}
 
-	p.a.UI.Done("%s is a copy of %s now. Deployed in %s.", envPath, p.name(), done.took())
+	p.a.UI.Done("%s is a copy of %s now. Deployed in %s.", envPath, p.name(), done.Took())
 	if line := nobodyReadsLine(done.Project); line != "" && len(dotenv.Names(string(p.local))) > 0 {
 		p.a.UI.Info("  %s", line)
 	}
-	return done.said(p.a)
+	return done.Said(p.a)
 }
 
 // name is the file as a sentence names it: as typed, and the .env found beside a .pethost as

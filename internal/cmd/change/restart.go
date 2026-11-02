@@ -77,10 +77,7 @@ func sayStillStopped(a *app.App, project target.Project, after *pethost.Project)
 // another; with none named, each service of the project.
 func recreate(ctx context.Context, a *app.App, project target.Project, noQueue bool, services []string) error {
 	if len(services) == 0 {
-		client, err := a.Client()
-		if err != nil {
-			return err
-		}
+		client := a.Client()
 		answer, err := client.GetProject(ctx, &pethost.GetProjectRequest{ProjectID: project.ID})
 		if err != nil {
 			return err
@@ -88,7 +85,7 @@ func recreate(ctx context.Context, a *app.App, project target.Project, noQueue b
 		services = target.ServiceNames(answer.Project)
 	}
 
-	var last *outcome
+	var last *operation.Result
 	for _, service := range services {
 		name := ui.Clean(service)
 		done, err := operate(ctx, a, project, noQueue,
@@ -97,7 +94,7 @@ func recreate(ctx context.Context, a *app.App, project target.Project, noQueue b
 		if err != nil {
 			return err
 		}
-		a.UI.Done("%s, in %s.", recreated(done.Project, service), done.took())
+		a.UI.Done("%s, in %s.", recreated(done.Project, service), done.Took())
 		done.Notes(a)
 		last = done
 	}
@@ -105,7 +102,7 @@ func recreate(ctx context.Context, a *app.App, project target.Project, noQueue b
 		return nil
 	}
 	if a.JSON {
-		return a.PrintJSON(last.answer)
+		return a.PrintJSON(last.Answer)
 	}
 	last.Problems(a)
 	return nil

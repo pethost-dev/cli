@@ -73,10 +73,7 @@ func runRequests(cmd *cobra.Command, a *app.App, flags requestFlags) error {
 	if err != nil {
 		return err
 	}
-	client, err := a.Client()
-	if err != nil {
-		return err
-	}
+	client := a.Client()
 
 	r := &requests{ctx: ctx, a: a, client: client, project: project, flags: flags, since: from, status: status, printer: &requestPrinter{out: a.UI.Out}}
 	sequence, err := r.past()

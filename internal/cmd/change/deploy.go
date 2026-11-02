@@ -26,11 +26,8 @@ const deployWait = 2
 
 // deploy sends a change of the project and takes its deploy to the end. request says what
 // changes; the project and the wait are filled in here.
-func deploy(ctx context.Context, a *app.App, project target.Project, noQueue bool, request *pethost.DeployProjectRequest, words operation.Words) (*outcome, error) {
-	client, err := a.Client()
-	if err != nil {
-		return nil, err
-	}
+func deploy(ctx context.Context, a *app.App, project target.Project, noQueue bool, request *pethost.DeployProjectRequest, words operation.Words) (*operation.Result, error) {
+	client := a.Client()
 
 	request.ProjectID = project.ID
 	request.WaitSeconds = new(uint32(deployWait))
@@ -47,7 +44,7 @@ func deploy(ctx context.Context, a *app.App, project target.Project, noQueue boo
 		return nil, refused(a, answer)
 	}
 
-	call := started{operation: answer.Operation, project: answer.Project, log: answer.Log, answer: answer}
+	call := &operation.Result{Operation: answer.Operation, Project: answer.Project, LogEnd: answer.Log, Answer: answer}
 	return finish(ctx, a, project, call, words)
 }
 

@@ -37,14 +37,11 @@ func domainRmCommand(a *app.App) *cobra.Command {
 }
 
 func removeDomain(ctx context.Context, a *app.App, project target.Project, noQueue bool, host string) error {
-	client, err := a.Client()
-	if err != nil {
-		return err
-	}
+	client := a.Client()
 
 	var removed []pethost.Route
-	var done *outcome
-	err = againIfChanged(func() error {
+	var done *operation.Result
+	err := againIfChanged(func() error {
 		answer, err := client.GetProject(ctx, &pethost.GetProjectRequest{ProjectID: project.ID})
 		if err != nil {
 			return err
@@ -81,7 +78,7 @@ func removeDomain(ctx context.Context, a *app.App, project target.Project, noQue
 		back := fmt.Sprintf("pethost domain add %s %s:%d%s", word(removed[0].Host), word(removed[0].Service), removed[0].Port, project.Flag())
 		a.UI.Info("  To bring it back:  %s", a.UI.Err.Bold(back))
 	}
-	return done.said(a)
+	return done.Said(a)
 }
 
 // sayOpened says which machine port answers in place of an address that went: the compose file

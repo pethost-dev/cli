@@ -1,6 +1,6 @@
 // Package dotenv is a .env file as text, in Docker Compose's format (NAME=value, quotes,
-// comments, `export`): it finds the statements as Compose does, reads the value each gives as
-// Compose does, and writes a value so that Compose reads exactly it back. The API takes the
+// comments, `export`): it finds the statements as Compose does, reads the value each gives
+// without its quotes, and writes a value so that Compose reads exactly it back. The API takes the
 // project's /.env whole, so a change to one variable is an edit of the text: that variable's
 // statement is written anew, and every other byte of the file stays as it is. Whether a file is
 // a good one is the machine's to say, when it deploys it.
@@ -9,7 +9,6 @@ package dotenv
 import (
 	"regexp"
 	"slices"
-	"strconv"
 	"strings"
 	"unicode"
 )
@@ -113,36 +112,15 @@ func lineEnd(text string, at int) int {
 }
 
 // valueOf is the value a statement gives: a bare one as it stands, a quoted one without its
-// quotes, and in double quotes with the escapes read (\n, \t, \", \\, \$ …). A variable that a
-// value names ($NAME, ${NAME}) is left as written: Compose puts the value of that name in its
-// place.
+// quotes. Its escapes and the variables it names ($NAME, ${NAME}) are left as written: what reads
+// a value asks whether it is empty or what it names, which neither changes.
 func (s assignment) valueOf(text string) string {
 	from := valueStart(text, s.value)
 	if from == s.end || (text[from] != '"' && text[from] != '\'') {
 		return text[from:s.end]
 	}
 	_, held := quoted(text, from)
-	if text[from] == '\'' {
-		return held
-	}
-	return escapeSequence.ReplaceAllStringFunc(held, unescaped)
-}
-
-// escapeSequence is an escape that Compose reads in double quotes.
-var escapeSequence = regexp.MustCompile(`\\(?:[abcfnrtv$"\\]|0\d{0,3})`)
-
-// unescaped is the character an escape stands for, as Go reads it in a string literal, and
-// "\0" before an octal number; one that Go does not read stays as written.
-func unescaped(sequence string) string {
-	if sequence == `\$` {
-		return "$"
-	}
-	sequence = strings.Replace(sequence, `\0`, `\`, 1)
-	char, _, _, err := strconv.UnquoteChar(sequence, '"')
-	if err != nil {
-		return sequence
-	}
-	return string(char)
+	return held
 }
 
 // Names are the names a .env text sets, each once, in the text's order.
@@ -156,8 +134,8 @@ func Names(text string) []string {
 	return names
 }
 
-// Values are the variables a .env text sets and the value of each, as Compose reads them: a
-// name's last statement is the one that counts.
+// Values are the variables a .env text sets and the value of each (valueOf): a name's last
+// statement is the one that counts.
 func Values(text string) map[string]string {
 	values := map[string]string{}
 	for _, statement := range assignments(text) {

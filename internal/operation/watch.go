@@ -19,14 +19,19 @@ import (
 	"github.com/pethost-dev/cli/internal/ui"
 )
 
-// A Result is an operation that ended.
+// A Result is an operation as an answer of the API has it: ended, once Watch made it or its
+// FinishTime says so.
 type Result struct {
 	// How it ended.
 	Operation *pethost.Operation
 	// The project as it then is; nil once a delete has deleted it.
 	Project *pethost.Project
 	// The API's answer that both are from: what --json prints.
-	Answer *pethost.GetOperationResponse
+	Answer any
+	// The log's end, as that answer cuts it, and the whole log's length; a call that starts an
+	// operation does not answer with the length.
+	LogEnd       []pethost.OperationLogLine
+	LogLineCount uint32
 	// The operation's whole log, as it was streamed, cleaned for a terminal.
 	Log []string
 	// The command has printed the whole log itself, as `logs --deploy -f` does: a failure's
@@ -41,10 +46,7 @@ type Result struct {
 // title beside the spinner ("Building…"), and the log's last lines are redrawn under it. Ctrl-C
 // leaves the operation running and ends the command with how to follow it.
 func Watch(ctx context.Context, a *app.App, project target.Project, started *pethost.Operation, doing string) (*Result, error) {
-	client, err := a.Client()
-	if err != nil {
-		return nil, err
-	}
+	client := a.Client()
 	if started == nil {
 		return nil, fail.Failed("The machine started no operation.")
 	}
@@ -53,7 +55,7 @@ func Watch(ctx context.Context, a *app.App, project target.Project, started *pet
 	defer live.Stop()
 
 	var log []string
-	err = FollowLog(ctx, a, project.ID, started.OperationID, func(response *pethost.WatchOperationResponse) error {
+	err := FollowLog(ctx, a, project.ID, started.OperationID, func(response *pethost.WatchOperationResponse) error {
 		if message, ok := response.Message.(pethost.WatchOperationResponseLog); ok {
 			line := ui.Clean(message.Text)
 			log = append(log, line)
@@ -75,7 +77,14 @@ func Watch(ctx context.Context, a *app.App, project target.Project, started *pet
 	if err != nil {
 		return nil, err
 	}
-	return &Result{Operation: answer.Operation, Project: answer.Project, Answer: answer, Log: log}, nil
+	return &Result{
+		Operation:    answer.Operation,
+		Project:      answer.Project,
+		Answer:       answer,
+		LogEnd:       answer.Log,
+		LogLineCount: answer.LogLineCount,
+		Log:          log,
+	}, nil
 }
 
 // errFinished ends the follow of a log whose stream has said its last word.
@@ -87,17 +96,14 @@ var errFinished = errors.New("the operation finished")
 // nil when the operation ended or the person left with Ctrl-C, which ctx tells apart, and
 // otherwise the follow's failure.
 func FollowLog(ctx context.Context, a *app.App, projectID, operationID string, each func(*pethost.WatchOperationResponse) error) error {
-	client, err := a.Client()
-	if err != nil {
-		return err
-	}
+	client := a.Client()
 	request := &pethost.WatchOperationRequest{ProjectID: projectID, OperationID: operationID}
 
 	given := 0 // the lines each has had
 	open := func() iter.Seq2[*pethost.WatchOperationResponse, error] {
 		return newLines(client.WatchOperation(ctx, request), &given)
 	}
-	err = stream.Follow(ctx, a, open, func(response *pethost.WatchOperationResponse) error {
+	err := stream.Follow(ctx, a, open, func(response *pethost.WatchOperationResponse) error {
 		if err := each(response); err != nil {
 			return err
 		}

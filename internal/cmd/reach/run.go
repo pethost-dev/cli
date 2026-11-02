@@ -114,10 +114,7 @@ func runInService(ctx context.Context, a *app.App, named string, command []strin
 	if err != nil {
 		return err
 	}
-	client, err := a.Client()
-	if err != nil {
-		return err
-	}
+	client := a.Client()
 	service, err := serviceToRunIn(ctx, a, client, project, named)
 	if err != nil {
 		return err
