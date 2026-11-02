@@ -25,7 +25,8 @@ func dockerfileOf(p *plan) File {
 		// line that says so is read only as the file's first.
 		d.line("# check=skip=JSONArgsRecommended")
 	}
-	d.comment("Written by pethost deploy for this %s: %s.", p.project, strings.Join(p.evidence, ", "))
+	d.comment("Written by pethost deploy (https://pethost.dev).")
+	d.comment("For this %s: %s.", p.project, strings.Join(p.evidence, ", "))
 	d.comment("It is yours now: change it as you like. pethost does not write it again.")
 
 	if p.image == "" {
