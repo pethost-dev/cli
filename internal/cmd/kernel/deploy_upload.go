@@ -65,10 +65,9 @@ func (d *deploy) upload(ctx context.Context, ticket *pethost.CreateTransferRespo
 	defer live.Stop()
 
 	var sent atomic.Uint64
-	stop := live.Follow(func() string {
+	live.Follow(func() string {
 		return fmt.Sprintf("Packing and uploading… %s of %s", ui.Size(sent.Load()), ui.Size(d.packed.bytes))
 	})
-	defer stop()
 
 	started := time.Now()
 	body, packing := io.Pipe()

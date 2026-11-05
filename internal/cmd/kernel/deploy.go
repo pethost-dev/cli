@@ -31,7 +31,7 @@ The folder needs a Dockerfile or a compose file. Everything in it is sent but wh
 build makes again, and the machine builds and runs it.
 
 Where the folder has neither, pethost writes the Dockerfile itself for a project of a
-kind it knows: the file's first comment says what it read that from. A project it does
+kind it knows: the file's header says what it read that from. A project it does
 not know it offers to a coding agent on this computer (Claude Code, Codex, pi), once
 you chose one; PETHOST_AGENT names one for a run, and PETHOST_AGENT=none turns that
 off. A Dockerfile it wrote is yours once its first deploy has built and started: it is

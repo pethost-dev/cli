@@ -1,8 +1,6 @@
 package release
 
 import (
-	"encoding/json"
-	"os"
 	"time"
 
 	"github.com/pethost-dev/cli/internal/kept"
@@ -20,18 +18,10 @@ type Look struct {
 
 const lookName = "update.json"
 
-func lookFile() (string, error) {
-	return kept.File(lookName)
-}
-
-// LastLook reads the memory; a zero Look when there is none.
+// LastLook reads the memory; a zero Look when there is none, or none that can be read.
 func LastLook() Look {
 	var look Look
-	if path, err := lookFile(); err == nil {
-		if data, err := os.ReadFile(path); err == nil {
-			json.Unmarshal(data, &look)
-		}
-	}
+	kept.Read(lookName, &look)
 	return look
 }
 

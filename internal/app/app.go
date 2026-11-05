@@ -36,6 +36,9 @@ type App struct {
 	JSON bool
 	// --debug: each call's name, time and outcome on stderr.
 	Debug bool
+	// The project this run means came from a .pethost (target.Named): a NOT_FOUND may then be
+	// that file's, which target.Explain says.
+	ProjectFromFile bool
 
 	client *pethost.Client
 	signIn *signin.SignIn

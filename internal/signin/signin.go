@@ -6,7 +6,6 @@
 package signin
 
 import (
-	"encoding/json"
 	"errors"
 	"io/fs"
 	"os"
@@ -85,27 +84,12 @@ func samePanel(a, b string) bool {
 // directory.
 const storedName = "signin.json"
 
-func file() (string, error) {
-	return kept.File(storedName)
-}
-
 // Load reads the stored sign-in; nil = there is none.
 func Load() (*Stored, error) {
-	path, err := file()
-	if err != nil {
-		return nil, nil // No home to keep one in: nothing is stored.
-	}
-	data, err := os.ReadFile(path)
-	if errors.Is(err, fs.ErrNotExist) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-
 	var stored Stored
-	if err := json.Unmarshal(data, &stored); err != nil {
-		return nil, errors.New(path + " is not a sign-in the CLI wrote: remove it and run pethost login")
+	found, err := kept.Read(storedName, &stored)
+	if !found || err != nil {
+		return nil, err
 	}
 	return &stored, nil
 }
@@ -117,7 +101,7 @@ func Store(stored Stored) error {
 
 // Remove forgets the stored sign-in; nil when there was none.
 func Remove() error {
-	path, err := file()
+	path, err := kept.File(storedName)
 	if err != nil {
 		return err
 	}

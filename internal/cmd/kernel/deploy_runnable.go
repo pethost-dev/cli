@@ -92,7 +92,7 @@ func (d *deploy) makeRunnable(ctx context.Context, violations []pethost.SpecViol
 }
 
 // find says what the folder is, and tells the person why no file is written for it where
-// none is. What a row read is not said: it is the first comment of the file it writes.
+// none is. What a row read is not said: the header of the file it writes says it.
 func (d *deploy) find() detect.Finding {
 	finding := detect.Look(os.DirFS(d.dir))
 	if why := finding.Cannot + finding.Leaves; why != "" {

@@ -47,7 +47,8 @@ func (p Project) Flag() string {
 }
 
 // Named is the project that -p, PETHOST_PROJECT or a .pethost names, in that order; false =
-// none does. It asks nobody, calls nothing and prints nothing.
+// none does. It asks nobody, calls nothing and prints nothing, and notes on the App that the
+// project came from a file.
 func Named(a *app.App) (Project, bool, error) {
 	if project, ok := NamedOutright(a); ok {
 		return project, true, nil
@@ -57,6 +58,7 @@ func Named(a *app.App) (Project, bool, error) {
 	if file == nil || err != nil {
 		return Project{}, false, err
 	}
+	a.ProjectFromFile = true
 	return Project{ID: file.ProjectID, Source: FromFile, File: file}, true, nil
 }
 

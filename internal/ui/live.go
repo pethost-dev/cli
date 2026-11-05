@@ -10,8 +10,10 @@ import (
 // spinner and the time it has taken, and under it the last lines of a log. Lines written to
 // stderr meanwhile go above it. Off a terminal, and with -q, it draws nothing.
 type Live struct {
-	screen  *Screen // nil = it draws nothing
-	title   string
+	screen *Screen // nil = it draws nothing
+	title  string
+	// When set, the title as it is now: a count that grows.
+	follow  func() string
 	tail    []string
 	started time.Time
 	frame   int
@@ -44,28 +46,10 @@ func (s *Screen) Live(title string) *Live {
 	return l
 }
 
-// Title changes the title.
-func (l *Live) Title(title string) {
-	l.change(func() { l.title = title })
-}
-
-// Follow draws the title again as title() says it, five times a second, until the function it
-// returns is called: a count that grows.
-func (l *Live) Follow(title func() string) (stop func()) {
-	done := make(chan struct{})
-	go func() {
-		ticker := time.NewTicker(200 * time.Millisecond)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-done:
-				return
-			case <-ticker.C:
-				l.Title(title())
-			}
-		}
-	}()
-	return func() { close(done) }
+// Follow draws the title as title() says it at each redraw until Stop: a count that grows.
+// title only reads, and never writes to the screen: it is called while the screen is held.
+func (l *Live) Follow(title func() string) {
+	l.change(func() { l.follow = title })
 }
 
 // Line adds a line of the log shown under the title; the last few stay.
@@ -140,8 +124,12 @@ func (l *Live) draw() {
 	stderr := l.screen.Err
 	width := stderr.Width()
 
+	title := l.title
+	if l.follow != nil {
+		title = l.follow()
+	}
 	elapsed := Duration(time.Since(l.started))
-	lines := []string{stderr.Cyan(spinner[l.frame%len(spinner)]) + " " + l.title + " " + stderr.Dim(elapsed)}
+	lines := []string{stderr.Cyan(spinner[l.frame%len(spinner)]) + " " + title + " " + stderr.Dim(elapsed)}
 	for _, line := range l.tail {
 		lines = append(lines, "    "+stderr.Dim(line))
 	}

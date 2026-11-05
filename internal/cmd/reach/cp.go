@@ -91,11 +91,8 @@ func (c *copying) follow(name string, total int64) (stop func()) {
 	}
 
 	live := c.a.UI.Live(title())
-	stopTitle := live.Follow(title)
-	return func() {
-		stopTitle()
-		live.Stop()
-	}
+	live.Follow(title)
+	return live.Stop
 }
 
 // copied says that the copy is done: what went where, how much and how fast.

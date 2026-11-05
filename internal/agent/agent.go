@@ -11,7 +11,6 @@ package agent
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -166,29 +165,17 @@ type choice struct {
 
 const choiceName = "agent.json"
 
-func choiceFile() (string, error) {
-	return kept.File(choiceName)
-}
-
 // ChoiceFile is where the choice is kept, to tell the person; empty where nothing can be kept.
 func ChoiceFile() string {
-	path, _ := choiceFile()
+	path, _ := kept.File(choiceName)
 	return path
 }
 
-// remembered is the program of the person's choice; empty = none is kept.
+// remembered is the program of the person's choice; empty = none is kept, or none that can be
+// read.
 func remembered() string {
-	path, err := choiceFile()
-	if err != nil {
-		return ""
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return ""
-	}
-
 	var chosen choice
-	json.Unmarshal(data, &chosen)
+	kept.Read(choiceName, &chosen)
 	return chosen.Program
 }
 

@@ -114,6 +114,7 @@ func (d *deploy) nameNew(suggested string) error {
 
 		if !d.exists(id) {
 			d.project, d.create = target.Project{ID: id, Source: target.Picked}, true
+			d.sayNamedAfter(id)
 			return nil
 		}
 
@@ -122,7 +123,7 @@ func (d *deploy) nameNew(suggested string) error {
 			return err
 		}
 		if yes {
-			d.project = target.Project{ID: id, Source: target.Picked}
+			d.project, d.create = target.Project{ID: id, Source: target.Picked}, false
 			return nil
 		}
 		suggested = ""
@@ -136,11 +137,6 @@ func (d *deploy) askName(suggested string) (string, error) {
 		return d.a.UI.Ask("Name it", suggested, d.addressHint)
 	}
 	if d.a.UI.Yes && suggested != "" {
-		after := "this folder"
-		if suggested != nameFor(d.dir) {
-			after = "its " + target.FileName
-		}
-		d.a.UI.Info("A new project, named after %s: %s", after, d.a.UI.Err.Bold(suggested))
 		return suggested, nil
 	}
 
@@ -148,6 +144,19 @@ func (d *deploy) askName(suggested string) (string, error) {
 		d.a.CommandLine("-p", cmp.Or(suggested, "<name>")))
 	choice.Lead = "Run:"
 	return "", choice
+}
+
+// sayNamedAfter says what a new project's name was taken from where nobody typed it: the
+// folder, or its .pethost.
+func (d *deploy) sayNamedAfter(id string) {
+	if d.a.UI.CanAsk() {
+		return
+	}
+	after := "this folder"
+	if id != nameFor(d.dir) {
+		after = "its " + target.FileName
+	}
+	d.a.UI.Info("A new project, named after %s: %s", after, d.a.UI.Err.Bold(id))
 }
 
 // addressHint says where a project of this id will live, when the machine gives it its first

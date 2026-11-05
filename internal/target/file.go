@@ -138,13 +138,13 @@ func (f *File) notHere(state State, machine *pethost.GetMachineResponse) *fail.E
 }
 
 // Explain is a command's failure, said as what it means when the command took its project from
-// a .pethost that this machine has no project for: the folder is another account's, or its
-// project was deleted. The machine then answers that it has no such project, which is true and
-// says nothing of the file. It is asked once more, for its projects, only after such a failure;
-// any other failure is returned as it is.
+// a .pethost, as Named noted, that this machine has no project for: the folder is another
+// account's, or its project was deleted. The machine then answers that it has no such project,
+// which is true and says nothing of the file. It is asked once more, for its projects, only
+// after such a failure; any other failure is returned as it is.
 func Explain(ctx context.Context, a *app.App, failure error) error {
 	api, ok := errors.AsType[*pethost.Error](failure)
-	if !ok || api.Code != pethost.CodeNotFound {
+	if !ok || api.Code != pethost.CodeNotFound || !a.ProjectFromFile {
 		return failure
 	}
 	project, named, err := Named(a)
