@@ -20,6 +20,7 @@ import (
 	"github.com/pethost-dev/cli/internal/cmd/kernel"
 	"github.com/pethost-dev/cli/internal/cmd/observe"
 	"github.com/pethost-dev/cli/internal/cmd/reach"
+	"github.com/pethost-dev/cli/internal/cmd/workspace"
 	"github.com/pethost-dev/cli/internal/fail"
 	"github.com/pethost-dev/cli/internal/target"
 	"github.com/pethost-dev/cli/internal/ui"
@@ -38,15 +39,41 @@ func Run(stamped string) int {
 
 	screen := ui.New(os.Stdin, os.Stdout, os.Stderr)
 	screen.Interrupt = ctx.Done()
-	a := app.New(screen, buildOf(stamped), os.Args[1:])
-
-	ran, err := tree(a).ExecuteContextC(ctx)
+	a, ran, err := execute(ctx, func() *app.App { return app.New(screen, buildOf(stamped), os.Args[1:]) })
 	code := fail.Print(screen, target.Explain(ctx, a, err), a.JSON || asksForJSON(a.Args))
 	// A command that Ctrl-C ended well, as a tunnel, is followed by no question.
 	if err == nil && ctx.Err() == nil && !answersAShell(ran) {
 		account.CheckForUpdate(ctx, a)
 	}
 	return code
+}
+
+// reruns is how many times a run is made again in another workspace: once where the person
+// picked the workspace a call needed, and once more where its project then turns out to have
+// moved.
+const reruns = 2
+
+// execute runs the command line, and again in the workspace target.Again settles on, with an
+// App of its own each time; it returns the last run's.
+func execute(ctx context.Context, newApp func() *app.App) (*app.App, *cobra.Command, error) {
+	a := newApp()
+	ran, err := tree(a).ExecuteContextC(ctx)
+	for range reruns {
+		if err == nil || answersAShell(ran) {
+			break
+		}
+		workspace, again, end := target.Again(ctx, a, err)
+		if end != nil {
+			return a, ran, end
+		}
+		if !again {
+			break
+		}
+		a = newApp()
+		a.Chosen = workspace
+		ran, err = tree(a).ExecuteContextC(ctx)
+	}
+	return a, ran, err
 }
 
 // asksForJSON says whether the command line has --json, read by pflag from the words alone, as
@@ -120,6 +147,7 @@ func tree(a *app.App) *cobra.Command {
 		SilenceErrors: true,
 		PersistentPreRun: func(*cobra.Command, []string) {
 			a.Start()
+			target.UseFolderWorkspace(a)
 		},
 	}
 	root.SetVersionTemplate("pethost {{.Version}}\n")
@@ -127,9 +155,10 @@ func tree(a *app.App) *cobra.Command {
 
 	a.Flags(root.PersistentFlags())
 	_ = root.RegisterFlagCompletionFunc("project", target.CompleteProjects(a))
+	_ = root.RegisterFlagCompletionFunc("workspace", target.CompleteWorkspaces(a))
 
 	for _, commands := range [][]*cobra.Command{
-		kernel.Commands(a), observe.Commands(a), reach.Commands(a), change.Commands(a), account.Commands(a), panelCommands(a),
+		kernel.Commands(a), observe.Commands(a), reach.Commands(a), change.Commands(a), workspace.Commands(a), account.Commands(a), panelCommands(a),
 	} {
 		root.AddCommand(commands...)
 	}

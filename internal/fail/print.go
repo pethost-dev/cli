@@ -56,11 +56,16 @@ func (e *Error) lines(stream *ui.Stream) []string {
 
 	commands := strings.Split(e.Next, "\n")
 	lead := e.lead(len(commands))
-	if len(commands) == 1 && ui.Width(message)+len(lead)+len(commands[0]) < sameLine {
+	// A message of several lines, as the API's list of workspaces, keeps the lead off its last.
+	several := strings.Contains(message, "\n")
+	if len(commands) == 1 && !several && ui.Width(message)+len(lead)+len(commands[0]) < sameLine {
 		return []string{message + " " + lead + " " + stream.Bold(commands[0])}
 	}
 
 	lines := []string{message + " " + lead}
+	if several {
+		lines = []string{message, lead}
+	}
 	for _, command := range commands {
 		lines = append(lines, "  "+stream.Bold(command))
 	}

@@ -102,9 +102,10 @@ func loginWithToken(ctx context.Context, a *app.App) error {
 }
 
 // reachedTheAccount says whether a refusal came from past the panel's check of the token: a
-// typed detail is about the account's machine, which only a token the panel took is told.
+// typed detail is about the account's machine or workspaces, which only a token the panel took
+// is told.
 func reachedTheAccount(api *pethost.Error) bool {
-	return api.NoMachine != nil || api.MachineUnreachable != nil
+	return api.NoMachine != nil || api.MachineUnreachable != nil || api.WorkspaceChoice != nil
 }
 
 // machineOf asks for the machine with a token of its own, not the run's: the run may go on
@@ -142,6 +143,8 @@ func sayWhoSignedIn(ctx context.Context, a *app.App, answer *pethost.GetMachineR
 	case api != nil && api.NoMachine != nil:
 		a.UI.Done("Signed in.")
 		a.UI.Info("%s", fail.NoMachineMessage(api.NoMachine))
+	case api != nil && api.WorkspaceChoice != nil:
+		a.UI.Done("Signed in. It may act in %d workspaces:  %s", api.WorkspaceChoice.Total, a.UI.Err.Bold("pethost workspaces"))
 	case ctx.Err() != nil:
 		return ctx.Err()
 	default:

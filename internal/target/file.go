@@ -1,7 +1,6 @@
 package target
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,13 +19,21 @@ import (
 // FileName is the file the first deploy writes into a project's folder, to be committed with it.
 const FileName = ".pethost"
 
-// A File is a folder's .pethost: two facts, which say whose project the folder is.
+// A File is a folder's .pethost: the facts that say whose project the folder is. One written by
+// pethost 0.2 has the first two alone.
 type File struct {
 	// The project's id.
 	ProjectID string `json:"project_id"`
-	// The account's domain on Pethost when it was written, e.g. "sam.pethost.app": another one
-	// now means another account's folder, or a domain the person has changed since.
+	// The workspace's domain on Pethost when it was written, e.g. "sam.pethost.app": for a file
+	// without WorkspaceID, another one now means another account's folder, or a domain the person
+	// has changed since. It is kept right for pethost 0.2, which reads nothing else.
 	AppsDomain string `json:"apps_domain"`
+	// The workspace the project is in, by its id, which never changes: the calls for the
+	// folder's project name it. Empty = not known, and the calls name none.
+	WorkspaceID string `json:"workspace_id,omitempty"`
+	// The project's own id, which a project of the same id made after it is deleted does not
+	// have. Empty = not known.
+	UID string `json:"uid,omitempty"`
 
 	// The folder it lies in.
 	Dir string `json:"-"`
@@ -51,6 +58,7 @@ func ReadFile(dir string) (*File, error) {
 	// The file may have come with someone else's repository: what it says is their text, and is
 	// printed in questions and in the commands a refusal names.
 	file.ProjectID, file.AppsDomain = ui.Clean(file.ProjectID), ui.Clean(file.AppsDomain)
+	file.WorkspaceID, file.UID = ui.Clean(file.WorkspaceID), ui.Clean(file.UID)
 	return &file, nil
 }
 
@@ -73,23 +81,47 @@ func FindFile(dir string) (*File, error) {
 	}
 }
 
-// WriteFile writes a folder's .pethost.
-func WriteFile(dir, projectID, appsDomain string) error {
-	data, err := json.MarshalIndent(File{ProjectID: projectID, AppsDomain: appsDomain}, "", "  ")
+// WriteFile writes a folder's .pethost: file's facts, in its Dir.
+func WriteFile(file File) error {
+	data, err := json.MarshalIndent(file, "", "  ")
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(dir, FileName), append(data, '\n'), 0o644)
+	return os.WriteFile(filepath.Join(file.Dir, FileName), append(data, '\n'), 0o644)
+}
+
+// FileFrom is the .pethost of a project for the folder dir, from GetMachine's answer for the
+// workspace that holds it: the project's ids, the workspace's and its domain. false = the
+// machine has no project of that id.
+func FileFrom(dir string, machine *pethost.GetMachineResponse, projectID string) (File, bool) {
+	file := File{Dir: dir, ProjectID: projectID}
+	project := file.summaryOn(machine)
+	if project == nil {
+		return File{}, false
+	}
+
+	file.UID = project.UID
+	if machine.Machine != nil {
+		file.AppsDomain = machine.Machine.AppsDomain
+	}
+	if machine.Workspace != nil {
+		file.WorkspaceID = machine.Workspace.WorkspaceID
+	}
+	return file, true
 }
 
 // A State is how a .pethost stands to the machine of the account signed in.
 type State int
 
 const (
-	// The machine has the project, under the domain the file names.
+	// The machine has the project, under the domain or in the workspace the file names.
 	Current State = iota
-	// The file is this account's, and its project is no longer on the machine: deleted since.
+	// The file is this account's, and its project is no longer on the machine: deleted, or
+	// moved to another workspace, since.
 	Gone
+	// The file is this account's, and a different project has its id now: the file's was
+	// deleted, and another made under the same id.
+	Replaced
 	// The file names another domain, and this machine has a project of that id: another
 	// account's folder, whose namesake here may be a different project.
 	Namesake
@@ -99,20 +131,40 @@ const (
 
 // On says how the file stands to a machine, as GetMachine answered.
 func (f *File) On(machine *pethost.GetMachineResponse) State {
-	has := slices.ContainsFunc(machine.Projects, func(project pethost.ProjectSummary) bool {
-		return project.ProjectID == f.ProjectID
-	})
-	same := machine.Machine != nil && machine.Machine.AppsDomain == f.AppsDomain
+	project := f.summaryOn(machine)
+	same := f.sameWorkspace(machine)
 
 	switch {
-	case same && has:
+	case same && project != nil && f.UID != "" && project.UID != "" && project.UID != f.UID:
+		return Replaced
+	case same && project != nil:
 		return Current
 	case same:
 		return Gone
-	case has:
+	case project != nil:
 		return Namesake
 	}
 	return Elsewhere
+}
+
+// summaryOn is the machine's project of the file's id; nil = it has none.
+func (f *File) summaryOn(machine *pethost.GetMachineResponse) *pethost.ProjectSummary {
+	at := slices.IndexFunc(machine.Projects, func(project pethost.ProjectSummary) bool {
+		return project.ProjectID == f.ProjectID
+	})
+	if at < 0 {
+		return nil
+	}
+	return &machine.Projects[at]
+}
+
+// sameWorkspace says whether the machine is the one the file was written for: of the workspace
+// it names, or, in a file that names none, under its domain.
+func (f *File) sameWorkspace(machine *pethost.GetMachineResponse) bool {
+	if f.WorkspaceID != "" && machine.Workspace != nil {
+		return machine.Workspace.WorkspaceID == f.WorkspaceID
+	}
+	return machine.Machine != nil && machine.Machine.AppsDomain == f.AppsDomain
 }
 
 // Says is a state that is not Current as a sentence for the person.
@@ -124,11 +176,22 @@ func (f *File) Says(state State, machine *pethost.GetMachineResponse) string {
 
 	switch state {
 	case Gone:
-		return fmt.Sprintf("This folder's %s names %s, which is not on your machine any more.", FileName, id)
+		return fmt.Sprintf("This folder's %s names %s, which is not %s any more.", FileName, id, inWorkspace(machine))
+	case Replaced:
+		return fmt.Sprintf("This folder's %s was written for an earlier %s: a different project has that id %s now.", FileName, id, inWorkspace(machine))
 	case Namesake:
 		return fmt.Sprintf("This folder's %s was written for %s on %s. Your machine, %s, has a %s of its own.", FileName, id, was, now, id)
 	}
 	return fmt.Sprintf("This folder's %s was written for %s on %s, and your machine, %s, has no such project.", FileName, id, was, now)
+}
+
+// inWorkspace is where a machine's projects are, in a sentence: "in Personal", or "on your
+// machine" when the answer names no workspace.
+func inWorkspace(machine *pethost.GetMachineResponse) string {
+	if machine.Workspace == nil || machine.Workspace.Name == "" {
+		return "on your machine"
+	}
+	return "in " + ui.Clean(machine.Workspace.Name)
 }
 
 // notHere is the refusal of a .pethost whose project this machine does not have (Gone,
@@ -137,31 +200,26 @@ func (f *File) notHere(state State, machine *pethost.GetMachineResponse) *fail.E
 	return fail.Failed("%s", f.Says(state, machine)).WithLead("To put this folder online here, run:", "pethost deploy")
 }
 
-// Explain is a command's failure, said as what it means when the command took its project from
-// a .pethost, as Named noted, that this machine has no project for: the folder is another
-// account's, or its project was deleted. The machine then answers that it has no such project,
-// which is true and says nothing of the file. It is asked once more, for its projects, only
-// after such a failure; any other failure is returned as it is.
-func Explain(ctx context.Context, a *app.App, failure error) error {
-	api, ok := errors.AsType[*pethost.Error](failure)
-	if !ok || api.Code != pethost.CodeNotFound || !a.ProjectFromFile {
-		return failure
+// SameProject is nil when the project an answer holds is the one a .pethost named it by, as far
+// as both know its uid, and otherwise the refusal of the file (Replaced): a read that shows the
+// project checks it at no cost.
+func SameProject(a *app.App, project Project, got *pethost.Project, machine *pethost.GetMachineResponse) error {
+	file := project.File
+	if project.Source != FromFile || got == nil {
+		return nil
 	}
-	project, named, err := Named(a)
-	if err != nil || !named || project.Source != FromFile {
-		return failure
+	if file.WorkspaceID == "" {
+		_ = writeWorkspace(file, machine) // A read carries on without it, as completeOldFile's.
+		return nil
 	}
-	client := a.Client()
-	machine, err := client.GetMachine(ctx, nil)
-	if err != nil {
-		return failure
+	if file.UID == "" || got.UID == "" || got.UID == file.UID {
+		return nil
 	}
+	return file.replaced(a, machine)
+}
 
-	state := project.File.On(machine)
-	if state != Gone && state != Elsewhere {
-		return failure // The machine has the project: something else was not found.
-	}
-	e := project.File.notHere(state, machine)
-	e.Code = api.Code.String()
-	return e
+// replaced is the refusal of a .pethost whose id a different project has now (Replaced), with the
+// command that means that project: a change is never made to it by the folder's file.
+func (f *File) replaced(a *app.App, machine *pethost.GetMachineResponse) *fail.Error {
+	return fail.Failed("%s", f.Says(Replaced, machine)).WithLead("To act on the project that has the id now, run:", a.CommandLine("-p", f.ProjectID))
 }

@@ -10,15 +10,18 @@ import (
 	"github.com/pethost-dev/cli/internal/browser"
 	"github.com/pethost-dev/cli/internal/fail"
 	"github.com/pethost-dev/cli/internal/say"
+	"github.com/pethost-dev/cli/internal/target"
 )
 
-// The machine a deploy goes to. An account that has none yet is told where a plan is chosen,
-// and on a terminal the deploy waits for the machine and then goes on.
+// The machine a deploy goes to: the one of the workspace the folder's .pethost, -w or
+// PETHOST_WORKSPACE names, else the account's only one; with several and none named, a terminal
+// picks one. An account that has none yet is told where a plan is chosen, and on a terminal the
+// deploy waits for the machine and then goes on.
 
 // readMachine reads the machine and its projects. Without a machine it waits for one on a
 // terminal; elsewhere the API's refusal ends the command, as a person must act.
 func (d *deploy) readMachine(ctx context.Context) error {
-	answer, err := d.client.GetMachine(ctx, nil)
+	answer, err := d.getMachine(ctx)
 	detail := noMachine(err)
 	waits := detail != nil && d.a.UI.CanAsk() && !d.a.JSON
 	if waits {
@@ -41,6 +44,38 @@ func (d *deploy) readMachine(ctx context.Context) error {
 		d.a.UI.Done("Signed in. Your machine: %s", say.Machine(answer.Machine))
 	}
 	return nil
+}
+
+// getMachine reads the machine of the deploy's workspace. A workspace the folder's .pethost
+// names that is none of this account's is left for the account's own, where the file then reads
+// as another account's (target.Elsewhere, Namesake). Where the account has several workspaces
+// and nothing names one, a terminal picks it, and the next commands name it with -w.
+func (d *deploy) getMachine(ctx context.Context) (*pethost.GetMachineResponse, error) {
+	answer, err := d.client.GetMachine(ctx, nil)
+	if d.notOurs(err) {
+		d.useWorkspace("")
+		answer, err = d.client.GetMachine(ctx, nil)
+	}
+
+	api, _ := errors.AsType[*pethost.Error](err)
+	if api == nil || api.WorkspaceChoice == nil || api.Code != pethost.CodeFailedPrecondition || !d.a.UI.CanAsk() {
+		return answer, err
+	}
+	picked, err := target.PickWorkspace(d.a, api.WorkspaceChoice)
+	if err != nil {
+		return nil, err
+	}
+	d.a.Chosen = picked
+	d.useWorkspace(picked)
+	return d.client.GetMachine(ctx, nil)
+}
+
+// notOurs says whether a refusal is of the workspace the folder's .pethost names, as none of
+// the caller's.
+func (d *deploy) notOurs(err error) bool {
+	api, ok := errors.AsType[*pethost.Error](err)
+	return ok && api.WorkspaceChoice != nil && api.Code == pethost.CodeInvalidArgument &&
+		d.file != nil && d.file.WorkspaceID != "" && d.a.CallsWorkspace() == d.file.WorkspaceID
 }
 
 func noMachine(err error) *pethost.NoMachine {

@@ -74,6 +74,9 @@ type deploy struct {
 	create  bool
 	// The folder gets a .pethost: it had none, or one that named another machine's project.
 	writeFile bool
+	// The .pethost that names the project deployed, which its answer then completes: the one this
+	// deploy wrote, or one an earlier pethost wrote without the project's uid or workspace.
+	kept *target.File
 	// The person signed in during this run.
 	signedInNow bool
 	// What this run wrote from its own reading of the folder, which its first deploy proves
@@ -83,21 +86,26 @@ type deploy struct {
 	answer any
 }
 
-// run is the deploy in its steps.
+// run is the deploy in its steps. The folder is chosen before the machine is read: its .pethost
+// names the workspace whose machine it is.
 func (d *deploy) run(ctx context.Context, args []string) error {
+	d.a.Changes = true
 	if err := d.signIn(ctx); err != nil {
-		return err
-	}
-	if err := d.readMachine(ctx); err != nil {
 		return err
 	}
 	if err := d.chooseFolder(args); err != nil {
 		return err
 	}
+	if err := d.useFolderWorkspace(ctx); err != nil {
+		return err
+	}
+	if err := d.readMachine(ctx); err != nil {
+		return err
+	}
 	if err := d.lookAtFolder(ctx); err != nil {
 		return err
 	}
-	if err := d.chooseProject(); err != nil {
+	if err := d.chooseProject(ctx); err != nil {
 		return err
 	}
 
@@ -121,6 +129,9 @@ func (d *deploy) watch(ctx context.Context, started *pethost.Operation) error {
 		return err
 	}
 	d.answer = result.Answer
+	if err := d.completeFile(result.Project); err != nil {
+		return err
+	}
 	return d.finish(ctx, result)
 }
 
@@ -219,24 +230,6 @@ func (d *deploy) namedOutside() bool {
 	return named
 }
 
-// rememberFolder writes the folder's .pethost once the machine has taken the deploy: from then
-// on the project exists, however its first deploy ends.
-func (d *deploy) rememberFolder() error {
-	if !d.writeFile {
-		return nil
-	}
-
-	domain := ""
-	if d.machine.Machine != nil {
-		domain = d.machine.Machine.AppsDomain
-	}
-	if err := target.WriteFile(d.dir, d.project.ID, domain); err != nil {
-		return fail.Failed("The deploy runs, but %s could not be written here: %s", target.FileName, err).
-			WithLead("Follow it:", "pethost logs --deploy -f"+d.project.Flag())
-	}
-	return nil
-}
-
 // sourceFromHere settles how the commands the deploy names from here on find the project: by
 // PETHOST_PROJECT or by the .pethost seen from where the person stands, which need no -p; else
 // by -p.
@@ -247,7 +240,7 @@ func (d *deploy) sourceFromHere() {
 
 	here, _ := target.FindFile(".")
 	if here != nil && here.ProjectID == d.project.ID {
-		d.project.Source = target.FromFile
+		d.project.Source, d.project.Workspace = target.FromFile, ""
 		return
 	}
 	d.project.Source = target.Picked

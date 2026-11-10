@@ -122,11 +122,11 @@ func githubOffCommand(a *app.App) *cobra.Command {
 // that -p, PETHOST_PROJECT or this folder names, when one does. Nothing is asked: the list is
 // the machine's, with or without a project.
 func showGithub(ctx context.Context, a *app.App) error {
-	project, named, err := target.Named(a)
-	if err != nil {
+	if err := a.NeedSignIn(); err != nil {
 		return err
 	}
-	if err := a.NeedSignIn(); err != nil {
+	project, named, err := target.Resolve(ctx, a)
+	if err != nil {
 		return err
 	}
 	client := a.Client()

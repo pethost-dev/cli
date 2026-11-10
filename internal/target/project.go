@@ -3,7 +3,9 @@
 // A change never guesses its project: it is -p, else PETHOST_PROJECT, else the .pethost of
 // this folder or of one above it; without any, a picker on a terminal and, off one, a refusal
 // that names the full commands. A read may also use the machine's only project. The first line
-// on stderr says where the answer came from.
+// on stderr says where the answer came from. The project's workspace is the .pethost's, else the
+// one the run was given, else the account's only one (workspace.go); a project that moved to
+// another is followed there by a read and not by a change (moved.go).
 package target
 
 import (
@@ -35,15 +37,32 @@ type Project struct {
 	Source Source
 	// FromFile: the .pethost that names it.
 	File *File
+	// The workspace it is in, as -w gave it or the person picked it; empty when a next command
+	// finds it without -w: from the .pethost, PETHOST_WORKSPACE, or the account's only one.
+	Workspace string
 }
 
-// Flag is what a next command needs to mean the same project: " -p recipes", or nothing when
-// it finds the project as this one did, in .pethost or PETHOST_PROJECT.
+// Flag is what a next command needs to mean the same project: " -p recipes", with " -w Work"
+// after it where the workspace was given so, or nothing when it finds the project as this one
+// did, in .pethost or PETHOST_PROJECT.
 func (p Project) Flag() string {
-	if p.Source == FromFile || p.Source == FromEnvironment {
-		return ""
+	flag := ""
+	if p.Source != FromFile && p.Source != FromEnvironment {
+		flag = " -p " + app.ShellWord(p.ID)
 	}
-	return " -p " + app.ShellWord(p.ID)
+	if p.Workspace != "" {
+		flag += " -w " + app.ShellWord(p.Workspace)
+	}
+	return flag
+}
+
+// FlagWorkspace is the workspace a next command names with -w to act where this run did: -w's,
+// or the one picked during the run; empty for none.
+func FlagWorkspace(a *app.App) string {
+	if a.Workspace != "" {
+		return a.Workspace
+	}
+	return a.Chosen
 }
 
 // Named is the project that -p, PETHOST_PROJECT or a .pethost names, in that order; false =
@@ -66,10 +85,10 @@ func Named(a *app.App) (Project, bool, error) {
 // neither does.
 func NamedOutright(a *app.App) (Project, bool) {
 	if a.Project != "" {
-		return Project{ID: a.Project, Source: FromFlag}, true
+		return Project{ID: a.Project, Source: FromFlag, Workspace: FlagWorkspace(a)}, true
 	}
 	if id := os.Getenv("PETHOST_PROJECT"); id != "" {
-		return Project{ID: id, Source: FromEnvironment}, true
+		return Project{ID: id, Source: FromEnvironment, Workspace: FlagWorkspace(a)}, true
 	}
 	return Project{}, false
 }
@@ -83,8 +102,9 @@ func ForChange(ctx context.Context, a *app.App) (Project, error) {
 	if err := a.NeedSignIn(); err != nil {
 		return Project{}, err
 	}
+	a.Changes = true
 	a.SayToken()
-	project, named, err := Named(a)
+	project, named, err := Resolve(ctx, a)
 	if err != nil {
 		return Project{}, err
 	}
@@ -107,12 +127,15 @@ func ForRead(ctx context.Context, a *app.App) (Project, error) {
 	if err := a.NeedSignIn(); err != nil {
 		return Project{}, err
 	}
-	project, named, err := Named(a)
+	project, named, err := Resolve(ctx, a)
 	if err != nil {
 		return Project{}, err
 	}
 	if !named {
 		return choose(ctx, a, true)
+	}
+	if project.Source == FromFile && project.File.WorkspaceID == "" {
+		completeOldFile(ctx, a, project.File)
 	}
 	Announce(a, project)
 	return project, nil
@@ -158,7 +181,7 @@ func choose(ctx context.Context, a *app.App, read bool) (Project, error) {
 	case len(machine.Projects) == 0:
 		return Project{}, fail.Failed("There is no project on your machine yet.").WithLead("In your app's folder, run:", "pethost deploy")
 	case read && len(machine.Projects) == 1:
-		project := Project{ID: machine.Projects[0].ProjectID, Source: OnlyProject}
+		project := Project{ID: machine.Projects[0].ProjectID, Source: OnlyProject, Workspace: FlagWorkspace(a)}
 		Announce(a, project)
 		return project, nil
 	}
@@ -167,7 +190,7 @@ func choose(ctx context.Context, a *app.App, read bool) (Project, error) {
 	if err != nil {
 		return Project{}, err
 	}
-	return Project{ID: machine.Projects[picked].ProjectID, Source: Picked}, nil
+	return Project{ID: machine.Projects[picked].ProjectID, Source: Picked, Workspace: FlagWorkspace(a)}, nil
 }
 
 func projectChoices(a *app.App, projects []pethost.ProjectSummary) []ui.Choice {
@@ -201,7 +224,8 @@ func Title(metadata *pethost.ProjectMetadata) string {
 	return title
 }
 
-// checkFile holds a .pethost against the machine of the account signed in.
+// checkFile holds a .pethost against the machine of the workspace it names, else of the account
+// signed in. A project that is not there may have moved: the API's refusal says so then.
 func checkFile(ctx context.Context, a *app.App, file *File) error {
 	client := a.Client()
 	machine, err := client.GetMachine(ctx, nil)
@@ -210,8 +234,17 @@ func checkFile(ctx context.Context, a *app.App, file *File) error {
 	}
 
 	switch state := file.On(machine); state {
-	case Gone, Elsewhere:
+	case Current:
+		return writeWorkspace(file, machine)
+	case Gone:
+		if err := MovedAway(ctx, a, file.ProjectID); err != nil {
+			return err
+		}
 		return file.notHere(state, machine)
+	case Elsewhere:
+		return file.notHere(state, machine)
+	case Replaced:
+		return file.replaced(a, machine)
 	case Namesake:
 		yes, err := a.UI.Confirm(file.Says(state, machine)+" Act on it?", a.CommandLine("-p", file.ProjectID))
 		if err != nil {
@@ -222,4 +255,29 @@ func checkFile(ctx context.Context, a *app.App, file *File) error {
 		}
 	}
 	return nil
+}
+
+// completeOldFile writes a .pethost of pethost 0.2, which names no workspace, anew with the
+// workspace and the uid of its project, when the machine the run's calls reach has it: else every
+// run in the folder of an account with several workspaces would have to be given one. It is a
+// read's, which carries on without it: the run's own call says what is wrong.
+func completeOldFile(ctx context.Context, a *app.App, file *File) {
+	machine, err := a.Client().GetMachine(ctx, nil)
+	if err == nil && file.On(machine) == Current {
+		_ = writeWorkspace(file, machine)
+	}
+}
+
+// writeWorkspace writes a .pethost that names no workspace anew for the one whose machine has its
+// project (Current), as the first deploy writes it; a file that names one is left as it is.
+func writeWorkspace(file *File, machine *pethost.GetMachineResponse) error {
+	if file.WorkspaceID != "" || machine.Workspace == nil {
+		return nil
+	}
+	there, ok := FileFrom(file.Dir, machine, file.ProjectID)
+	if !ok {
+		return nil
+	}
+	*file = there
+	return WriteFile(there)
 }

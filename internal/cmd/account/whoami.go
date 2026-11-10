@@ -2,12 +2,15 @@ package account
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"strings"
 
 	pethost "github.com/pethost-dev/sdk/go"
 	"github.com/spf13/cobra"
 
 	"github.com/pethost-dev/cli/internal/app"
+	"github.com/pethost-dev/cli/internal/say"
 	"github.com/pethost-dev/cli/internal/signin"
 	"github.com/pethost-dev/cli/internal/ui"
 )
@@ -19,9 +22,10 @@ func whoamiCommand(a *app.App) *cobra.Command {
 	return &cobra.Command{
 		Use:   "whoami",
 		Short: "Who is signed in, and where",
-		Long: `Which account's machine the commands act on: its plan and its domain, the panel
-they call, and whether they are signed in by PETHOST_TOKEN or by this computer's own
-sign-in. The token itself is never printed.`,
+		Long: `Which workspace and machine the commands act on: its name, plan and domain, the
+panel they call, and whether they are signed in by PETHOST_TOKEN or by this computer's
+own sign-in. With several workspaces and none named, how many there are: -w names one.
+The token itself is never printed.`,
 		Example: `  pethost whoami`,
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -51,8 +55,15 @@ func whoami(ctx context.Context, a *app.App) error {
 	}
 
 	table := a.UI.Out.Table()
+	if err == nil && answer.Workspace != nil {
+		table.Row("Workspace", say.WorkspaceName(answer.Workspace))
+	}
 	if err == nil && answer.Machine != nil {
 		machineRows(table, answer.Machine)
+	}
+	if api, ok := errors.AsType[*pethost.Error](err); ok && api.WorkspaceChoice != nil && api.Code == pethost.CodeFailedPrecondition {
+		table.Row("Workspaces", fmt.Sprintf("%d: pethost workspaces lists them, -w names one", api.WorkspaceChoice.Total))
+		err = nil
 	}
 	table.Row("Panel", current.URL)
 	table.Row("Sign-in", signInWords(a.UI.Out, current))

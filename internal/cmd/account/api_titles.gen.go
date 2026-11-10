@@ -5,11 +5,13 @@ package account
 // apiTitles are the API's methods in the API's order, each with the first line of its
 // documentation in the SDK.
 var apiTitles = []apiTitle{
+	{"ListWorkspaces", "List workspaces. It only reads."},
 	{"GetMachine", "Get the machine. It only reads."},
 	{"RunMachineAction", "Run a machine action. It may delete or overwrite."},
 	{"GetProject", "Get a project. It only reads."},
 	{"CreateProject", "Create a project."},
 	{"DeployProject", "Deploy a project. It may delete or overwrite."},
+	{"MoveProject", "Move a project to another workspace. It may delete or overwrite."},
 	{"ListCommits", "List a project's commits. It only reads."},
 	{"RunProjectAction", "Run a project action. It may delete or overwrite."},
 	{"SetProjectAlerts", "Set a project's alerts. It may delete or overwrite."},

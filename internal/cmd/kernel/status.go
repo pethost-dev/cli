@@ -20,7 +20,7 @@ func statusCommand(a *app.App) *cobra.Command {
   pethost --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			project, named, err := target.Named(a)
+			project, named, err := target.Resolve(cmd.Context(), a)
 			if err != nil {
 				return err
 			}
@@ -70,12 +70,15 @@ func showProject(ctx context.Context, a *app.App, project target.Project) error 
 	if err != nil {
 		return err
 	}
+	if err := target.SameProject(a, project, answer.Project, machine); err != nil {
+		return err
+	}
 
 	if a.JSON {
 		return a.PrintJSON(answer)
 	}
 	target.Announce(a, project)
-	printMachineLine(a, machine.Machine)
+	printMachineLine(a, machine)
 	printProject(a, project, machine.Machine, answer.Project)
 	return nil
 }

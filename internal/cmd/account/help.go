@@ -181,6 +181,7 @@ var sections = []struct {
 	{"Deploy and look", []string{"deploy", "status", "ls", "why", "logs", "requests", "open"}},
 	{"Reach into a container", []string{"run", "shell", "tunnel", "files", "cp"}},
 	{"Change a project", []string{"env", "domain", "password", "rename", "rollback", "restart", "stop", "start", "backup", "volume", "github", "delete"}},
+	{"Workspaces", []string{"workspaces", "move"}},
 	{"The machine, and this program", []string{"machine", "login", "logout", "whoami", "update", "completion", "api", "help"}},
 }
 
@@ -191,7 +192,7 @@ func overview(root *cobra.Command) string {
 	writeTasks(&out, root)
 	writeSections(&out, root)
 	out.WriteString("\npethost help <command> shows how a command is used, with examples.\n")
-	out.WriteString("Every command takes   -p <project>   --json   -y, --yes   -q   --debug\n")
+	out.WriteString("Every command takes   -p <project>   -w <workspace>   --json   -y, --yes   -q   --debug\n")
 	return out.String()
 }
 

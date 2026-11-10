@@ -32,6 +32,12 @@ type App struct {
 
 	// -p, --project: the project a command acts on. Empty = not given: internal/target finds it.
 	Project string
+	// -w, --workspace: the workspace a command acts in, by its id or name. Empty = not given
+	// (workspace.go).
+	Workspace string
+	// A workspace chosen for this run after it began, which counts as -w: picked from the
+	// account's when a call needed one, or where the project was found to have moved.
+	Chosen string
 	// --json: the answer is the API's own JSON, and an error is an object on stderr.
 	JSON bool
 	// --debug: each call's name, time and outcome on stderr.
@@ -39,9 +45,14 @@ type App struct {
 	// The project this run means came from a .pethost (target.Named): a NOT_FOUND may then be
 	// that file's, which target.Explain says.
 	ProjectFromFile bool
+	// The command changes the project it means (target.ForChange): one that has moved is then
+	// not followed to its new workspace.
+	Changes bool
 
 	client *pethost.Client
 	signIn *signin.SignIn
+	// The workspace the calls name; empty = none (workspace.go).
+	workspace string
 }
 
 // Build says which release a binary is and how it came.
@@ -60,6 +71,7 @@ func New(screen *ui.Screen, build Build, args []string) *App {
 // Flags adds the global flags, which every command takes.
 func (a *App) Flags(flags *pflag.FlagSet) {
 	flags.StringVarP(&a.Project, "project", "p", "", "the project to act on, by its id")
+	a.workspaceFlag(flags)
 	flags.BoolVar(&a.JSON, "json", false, "print the API's own answer as JSON")
 	flags.BoolVarP(&a.UI.Yes, "yes", "y", false, "answer yes to a question")
 	flags.BoolVarP(&a.UI.Quiet, "quiet", "q", false, "print the answer alone")
@@ -67,9 +79,12 @@ func (a *App) Flags(flags *pflag.FlagSet) {
 }
 
 // Start is called once the flags are read, before a command runs: --json prints one answer, so
-// it silences progress as -q does.
+// it silences progress as -q does. The calls name the workspace the run was given, until a
+// folder's .pethost names its own.
 func (a *App) Start() {
 	a.UI.Quiet = a.UI.Quiet || a.JSON
+	given, _ := a.GivenWorkspace()
+	a.UseWorkspace(given)
 }
 
 // SignIn is the sign-in this run uses, read once: its Token is empty when there is none.
@@ -112,11 +127,14 @@ func (a *App) NeedSignIn() error {
 }
 
 // Client is the SDK's client, made on first use. Past NeedSignIn it has the token; a command that
-// missed that gate calls without one, and the panel's refusal then says to sign in.
+// missed that gate calls without one, and the panel's refusal then says to sign in. Each of its
+// calls names the run's workspace where the request names none.
 func (a *App) Client() *pethost.Client {
 	if a.client == nil {
 		current, _ := a.SignIn()
-		a.client = pethost.NewClient(pethost.Config{Token: current.Token, BaseURL: current.URL, HTTPClient: a.debugClient()})
+		a.client = pethost.NewClient(pethost.Config{
+			Token: current.Token, BaseURL: current.URL, HTTPClient: a.debugClient(), Workspace: a.workspace,
+		})
 	}
 	return a.client
 }
@@ -140,8 +158,12 @@ func (a *App) WithAnswer(answer any, err error) error {
 
 // CommandLine is this run's command line with more arguments added, as a refusal names it:
 // CommandLine("-p", "recipes") is "pethost logs -f -p recipes". They go before a "--": what
-// follows it is another program's command line, as in "pethost run web -- ls -l".
+// follows it is another program's command line, as in "pethost run web -- ls -l". A workspace
+// chosen during the run is in it as -w, as if typed.
 func (a *App) CommandLine(more ...string) string {
+	if a.Chosen != "" && a.Workspace == "" {
+		more = append([]string{"-w", a.Chosen}, more...)
+	}
 	own, rest := a.Args, []string(nil)
 	if dash := slices.Index(a.Args, "--"); dash >= 0 {
 		own, rest = a.Args[:dash], a.Args[dash:]

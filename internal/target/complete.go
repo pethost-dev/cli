@@ -12,9 +12,9 @@ import (
 	"github.com/pethost-dev/cli/internal/ui"
 )
 
-// Completion asks the machine what exists: project ids for -p, and a project's service names
-// for a command that takes one. A shell waits for it at each Tab, so it gives up soon, and any
-// failure completes nothing.
+// Completion asks the machine what exists: project ids for -p, a project's service names for a
+// command that takes one, and the account's workspaces for -w. A shell waits for it at each Tab,
+// so it gives up soon, and any failure completes nothing.
 
 // completionWait bounds the call a Tab makes.
 const completionWait = 3 * time.Second
@@ -53,6 +53,27 @@ func CompleteServices(a *app.App) cobra.CompletionFunc {
 	}
 }
 
+// CompleteWorkspaces completes a workspace's id, with its name as its description.
+func CompleteWorkspaces(a *app.App) cobra.CompletionFunc {
+	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		if a.NeedSignIn() != nil {
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		}
+		ctx, cancel := context.WithTimeout(cmd.Context(), completionWait)
+		defer cancel()
+
+		answer, err := a.Client().ListWorkspaces(ctx, nil)
+		if err != nil {
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		}
+		var ids []string
+		for _, workspace := range answer.Workspaces {
+			ids = append(ids, cobra.CompletionWithDesc(workspace.WorkspaceID, OneLine(workspace.Name)))
+		}
+		return ids, cobra.ShellCompDirectiveNoFileComp
+	}
+}
+
 // projectsNow is the machine's projects, or none when they cannot be had in time.
 func projectsNow(ctx context.Context, a *app.App) []pethost.ProjectSummary {
 	machine := MachineNow(ctx, a)
@@ -70,7 +91,13 @@ func MachineNow(ctx context.Context, a *app.App) *pethost.GetMachineResponse {
 	ctx, cancel := context.WithTimeout(ctx, completionWait)
 	defer cancel()
 
-	machine, err := a.Client().GetMachine(ctx, nil)
+	// A Tab runs no command, so nothing has settled the workspace: the one given, else the
+	// folder's.
+	workspace, _ := a.GivenWorkspace()
+	if project, named, _ := Named(a); workspace == "" && named && project.Source == FromFile {
+		workspace = project.File.WorkspaceID
+	}
+	machine, err := a.Client().GetMachine(ctx, &pethost.GetMachineRequest{Workspace: workspace})
 	if err != nil {
 		return nil
 	}

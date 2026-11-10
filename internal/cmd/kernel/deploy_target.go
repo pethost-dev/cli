@@ -2,6 +2,7 @@ package kernel
 
 import (
 	"cmp"
+	"context"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -18,7 +19,7 @@ import (
 // is always a new project, named once, on the one thing that never changes: its id, which
 // becomes its address.
 
-func (d *deploy) chooseProject() error {
+func (d *deploy) chooseProject(ctx context.Context) error {
 	if named, ok := target.NamedOutright(d.a); ok {
 		target.Announce(d.a, named)
 		d.settle(named)
@@ -30,11 +31,20 @@ func (d *deploy) chooseProject() error {
 	}
 
 	state := d.file.On(d.machine)
-	if state == target.Current {
+	switch state {
+	case target.Current:
 		d.project = target.Project{ID: d.file.ProjectID, Source: target.FromFile, File: d.file}
 		target.Announce(d.a, d.project)
 		d.sayFolderAbove()
 		return nil
+	case target.Replaced:
+		return fail.Failed("%s", d.file.Says(state, d.machine)).
+			WithLead("To deploy this folder as a new project, remove "+target.FileName+" and run:", "pethost deploy")
+	case target.Gone:
+		// A project that moved is not offered as a new one here: the move is the API's to say.
+		if err := target.MovedAway(ctx, d.a, d.file.ProjectID); err != nil {
+			return err
+		}
 	}
 	d.sayFolderAbove()
 	return d.staleFile(state)
@@ -84,7 +94,7 @@ func (d *deploy) staleFile(state target.State) error {
 			return err
 		}
 		if yes {
-			d.project = target.Project{ID: d.file.ProjectID, Source: target.Picked}
+			d.project = target.Project{ID: d.file.ProjectID, Source: target.Picked, Workspace: target.FlagWorkspace(d.a)}
 			return nil
 		}
 		return d.nameNew("")
@@ -112,18 +122,19 @@ func (d *deploy) nameNew(suggested string) error {
 			return err
 		}
 
+		picked := target.Project{ID: id, Source: target.Picked, Workspace: target.FlagWorkspace(d.a)}
 		if !d.exists(id) {
-			d.project, d.create = target.Project{ID: id, Source: target.Picked}, true
+			d.project, d.create = picked, true
 			d.sayNamedAfter(id)
 			return nil
 		}
 
-		yes, err := d.a.UI.Confirm(ui.Clean(id)+" is already on your machine. Is this folder its new version?", d.a.CommandLine("-p", id))
+		yes, err := d.a.UI.Confirm(ui.Clean(id)+" is already "+d.where()+". Is this folder its new version?", d.a.CommandLine("-p", id))
 		if err != nil {
 			return err
 		}
 		if yes {
-			d.project, d.create = target.Project{ID: id, Source: target.Picked}, false
+			d.project, d.create = picked, false
 			return nil
 		}
 		suggested = ""
@@ -167,6 +178,15 @@ func (d *deploy) addressHint(id string) string {
 		return ""
 	}
 	return "it will live at https://" + id + "." + domain
+}
+
+// where is where the deploy's projects are, in a sentence: "in Personal", or "on your machine"
+// where the answer names no workspace.
+func (d *deploy) where() string {
+	if d.machine.Workspace == nil || d.machine.Workspace.Name == "" {
+		return "on your machine"
+	}
+	return "in " + ui.Clean(d.machine.Workspace.Name)
 }
 
 // appsDomain is the account's domain, cleaned to be printed; empty without a machine.

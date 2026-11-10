@@ -17,7 +17,7 @@ import (
 // under it, then what to type next.
 
 func printMachine(a *app.App, answer *pethost.GetMachineResponse) {
-	printMachineLine(a, answer.Machine)
+	printMachineLine(a, answer)
 	printProjects(a, answer.Projects)
 	sayDeleted(a, answer.DeletedProjects)
 }
@@ -47,30 +47,45 @@ func printProjects(a *app.App, projects []pethost.ProjectSummary) {
 
 // sayDeleted names the deleted projects whose snapshots the machine still keeps, and the
 // command that shows one's: a deleted project comes back from there, and is listed nowhere else.
+// One a move took to another workspace says where (DeletedProject.MovedTo): it is not offered for
+// bringing back, which would make a second copy of it while it runs there.
 func sayDeleted(a *app.App, deleted []pethost.DeletedProject) {
 	if len(deleted) == 0 {
 		return
 	}
 	names := make([]string, len(deleted))
+	back := ""
 	for i, project := range deleted {
 		names[i] = ui.Clean(project.ProjectID)
+		if project.MovedTo != nil {
+			names[i] += " (moved to " + ui.Clean(project.MovedTo.WorkspaceName) + ")"
+		} else if back == "" {
+			back = project.ProjectID
+		}
+	}
+	if back == "" {
+		a.UI.Info("Deleted here, with snapshots kept: %s.", strings.Join(names, ", "))
+		return
 	}
 	a.UI.Info("Deleted, with snapshots kept: %s. To bring one back:  %s",
-		strings.Join(names, ", "), a.UI.Err.Bold("pethost backup -p "+app.ShellWord(deleted[0].ProjectID)))
+		strings.Join(names, ", "), a.UI.Err.Bold("pethost backup -p "+app.ShellWord(back)))
 }
 
-// printMachineLine writes the machine in one line: "Starter · 2 CPU, 3 GB · sam.pethost.app ·
-// memory 1.4 of 3 GB · disk 31% · backups on", and under it a restart that waits.
-func printMachineLine(a *app.App, machine *pethost.Machine) {
+// printMachineLine writes the machine in one line, after the workspace it serves: "Personal
+// k7f3q2xy · Starter · 2 CPU, 3 GB · sam.pethost.app · memory 1.4 of 3 GB · disk 31% · backups
+// on", and under it a restart that waits.
+func printMachineLine(a *app.App, answer *pethost.GetMachineResponse) {
+	machine := answer.Machine
 	if machine == nil {
 		return
 	}
 	out := a.UI.Out
 
-	parts := []string{
-		out.Bold(ui.Clean(machine.Name)),
-		say.Resources(machine),
+	var parts []string
+	if workspace := answer.Workspace; workspace != nil {
+		parts = append(parts, out.Bold(ui.Clean(workspace.Name))+" "+out.Dim(ui.Clean(workspace.WorkspaceID)))
 	}
+	parts = append(parts, ui.Clean(machine.Name), say.Resources(machine))
 	if machine.AppsDomain != "" {
 		parts = append(parts, ui.Clean(machine.AppsDomain))
 	}

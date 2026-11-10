@@ -51,7 +51,8 @@ program that talks back, or all of a long output, use pethost shell.`,
 
 	var options runOptions
 	cmd.Flags().StringVarP(&options.user, "run-as-user", "u", "", `run it as this user, not the container's; "root" can install packages`)
-	cmd.Flags().StringVarP(&options.directory, "working-directory", "w", "", "run it in this directory, not the container's")
+	// -w is every command's workspace: the directory has the long name alone.
+	cmd.Flags().StringVar(&options.directory, "working-directory", "", "run it in this directory, not the container's")
 	cmd.Flags().Uint32Var(&options.timeout, "timeout-seconds", 0, "stop it after this long, not after the machine's usual time")
 	cmd.Flags().BoolVarP(&options.stdin, "stdin", "i", false, "give it what is piped in as its stdin")
 
@@ -66,6 +67,10 @@ program that talks back, or all of a long output, use pethost shell.`,
 		service, command, err := splitAtDash(cmd, args)
 		if err != nil {
 			return ownFailure(a, err)
+		}
+		if strings.HasPrefix(a.Workspace, "/") {
+			// pethost 0.2's -w was this command's directory: a path given to it now is that.
+			return ownFailure(a, fail.Usage("-w names the workspace now; the directory to run in is --working-directory "+a.Workspace+".", cmd.UseLine()))
 		}
 		return ownFailure(a, runInService(cmd.Context(), a, service, command, options))
 	}

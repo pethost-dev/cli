@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -42,6 +43,21 @@ func fromAPI(api *pethost.Error) *Error {
 		e.Exit = ExitPerson
 		e.Message = NoMachineMessage(api.NoMachine)
 		e.Detail = map[string]any{"no_machine": api.NoMachine}
+	case api.WorkspaceChoice != nil:
+		// The API's message is written for an agent ("ask the person"); a person reads the
+		// workspaces from the detail, and the commands that name one are the run's to write
+		// (target.Explain).
+		e.Exit = ExitChoice
+		e.Message = ChoiceMessage(api.Code, api.WorkspaceChoice)
+		e.Detail = map[string]any{"workspace_choice": api.WorkspaceChoice}
+	case api.WorkspaceNotGranted != nil:
+		e.Exit = ExitPerson
+		e.Message = "This sign-in may not reach the workspace " + ui.Clean(api.WorkspaceNotGranted.WorkspaceID) + ": its token was not let into it."
+		e.Lead, e.Next = "Let it in the panel:", ui.Clean(api.WorkspaceNotGranted.URL)
+		e.Detail = map[string]any{"workspace_not_granted": api.WorkspaceNotGranted}
+	case api.ProjectMoved != nil:
+		e.Message = MovedMessage(api.ProjectMoved)
+		e.Detail = map[string]any{"project_moved": api.ProjectMoved}
 	case api.ProjectBusy != nil:
 		e.Exit = ExitLater
 		e.Message = BusyMessage("The project", api.ProjectBusy)
@@ -80,9 +96,39 @@ func fromAPI(api *pethost.Error) *Error {
 // person goes on.
 func NoMachineMessage(detail *pethost.NoMachine) string {
 	if detail.Reason == pethost.NoMachineReasonBeingPrepared {
+		if detail.WorkspaceID != "" {
+			return "The machine of the workspace " + ui.Clean(detail.WorkspaceID) + " is being prepared: an email comes when it is ready."
+		}
 		return "Your machine is being prepared: an email comes when it is ready."
 	}
 	return "This account has no machine yet. Choose a plan: " + detail.URL
+}
+
+// ChoiceMessage says that a call needs a workspace, and which there are: a line for each, its
+// name and what say.Workspace says of it, marked where it holds the project the call named.
+func ChoiceMessage(code pethost.Code, choice *pethost.WorkspaceChoice) string {
+	lines := []string{"This sign-in may act in " + ui.Plural(uint64(choice.Total), "workspace") + ", and the command names none:"}
+	if code == pethost.CodeInvalidArgument {
+		lines[0] = "The workspace named is none of the ones this sign-in may act in:"
+	}
+	for _, workspace := range choice.Workspaces {
+		line := "  " + ui.Clean(workspace.Name) + ": " + say.Workspace(&workspace)
+		if slices.Contains(choice.HoldingProject, workspace.WorkspaceID) {
+			line += " · has the project"
+		}
+		lines = append(lines, line)
+	}
+	if more := int(choice.Total) - len(choice.Workspaces); more > 0 {
+		lines = append(lines, "  and "+ui.Count(uint64(more))+" more: pethost workspaces")
+	}
+	return strings.Join(lines, "\n")
+}
+
+// MovedMessage says where a project moved: "recipes moved to the workspace Work (k7f3q2xy) 2 h
+// ago."
+func MovedMessage(moved *pethost.ProjectMoved) string {
+	return ui.Clean(moved.ProjectID) + " moved to the workspace " + ui.Clean(moved.WorkspaceName) +
+		" (" + ui.Clean(moved.WorkspaceID) + ") " + ui.Rough(time.Since(moved.MoveTime)) + " ago."
 }
 
 // BusyMessage says what holds a project: "recipes is busy: a deploy started 40 s ago."

@@ -48,6 +48,8 @@ func Doing(kind pethost.OperationKind) string {
 		return "restoring"
 	case pethost.OperationKindDelete:
 		return "deleting"
+	case pethost.OperationKindMove:
+		return "moving"
 	}
 	return strings.ToLower(kind.String())
 }
@@ -65,6 +67,8 @@ func Operation(kind pethost.OperationKind) string {
 		return "a restore"
 	case pethost.OperationKindDelete:
 		return "its deletion"
+	case pethost.OperationKindMove:
+		return "a move"
 	}
 	return "an operation (" + strings.ToLower(kind.String()) + ")"
 }
