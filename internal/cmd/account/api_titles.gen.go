@@ -37,7 +37,6 @@ var apiTitles = []apiTitle{
 	{"PauseSandbox", "Pause a sandbox."},
 	{"StopSandbox", "Stop a sandbox. It may delete or overwrite."},
 	{"ResumeSandbox", "Resume a sandbox."},
-	{"ForkSandbox", "Fork a sandbox."},
 	{"DeleteSandbox", "Delete a sandbox. It may delete or overwrite."},
 	{"ConnectSandbox", "Get a sandbox's address and root token."},
 	{"GetSandboxMetrics", "Read a sandbox's metrics. It only reads."},
