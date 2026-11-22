@@ -534,12 +534,13 @@ Every command takes   -p <project>   --json   -y, --yes   -q   --debug
   Rust.
 - [The API's reference](https://pethost.dev/docs/api/): every method, message and field.
 
-## Docker Compose hosting at one flat price
+## App Platform: Docker Compose hosting at one flat price
 
-Pethost is managed hosting for Docker Compose projects. A plan has a set size in CPU, memory and
-disk, at one flat price, for as many projects as fit. Pethost's software deploys them, gives
-them HTTPS addresses, keeps their request logs and backs them up every night. You run it through your
-agent or from a web panel: both show the same projects, logs and requests.
+Pethost has two products, sold apart. The App Platform is managed hosting for Docker Compose
+projects. A plan has a set size in CPU, memory and disk, at one flat price, for as many projects
+as fit. Pethost's software deploys them, gives them HTTPS addresses, keeps their request logs and
+backs them up every night. You run it through your agent or from a web panel: both show the same
+projects, logs and requests.
 
 - **Always on:** no cold starts, nothing sleeps, on every plan. Security updates install
   themselves.
@@ -560,14 +561,45 @@ agent or from a web panel: both show the same projects, logs and requests.
 **Pricing.** Starter is €9.99 a month for 2 vCPU, 3 GB of memory and 30 GB of SSD. Grow is
 €17.99 for 4 vCPU, 6 GB and 60 GB. Scale is €59 for 8 vCPU, 30 GB and 200 GB. Prices are without
 VAT. Whatever the plan, you can try anything: as many projects, containers and databases as
-fit, nothing metered, and nothing billed on top. There is no free tier. [See the plans](https://pethost.dev/#pricing).
+fit, nothing metered, and nothing billed on top. The App Platform has no free tier.
+[See the plans](https://pethost.dev/#pricing).
 
 **Who it is for.** Solo developers and early startups who host several projects, bots or small
 apps and want one fixed monthly bill, and people who build with an AI agent and want it to
 deploy and run what it wrote. It is not for large teams whose applications need several regions
 or autoscaling: a plan's size is the limit.
 
-## How Pethost compares
+## Agent Sandboxes: cloud VMs for AI agents, paused while they think
+
+Pethost Agent Sandboxes are Firecracker microVMs for AI agents, each with its own kernel and root
+inside. A sandbox starts in about 0.15 s, pauses with its memory and processes while the agent
+thinks, and wakes in 0.1 s at the next call. Commands, files, SSH, a desktop with Chrome, Claude
+Code and Codex installed, forks, templates, an egress allow-list and API keys the sandbox never
+holds. In the EU.
+
+- **A VM per sandbox:** every sandbox is its own Firecracker microVM with its own Linux kernel,
+  root inside.
+- **Billed by the second** at its size's price: 2 vCPU, 4 GiB and 10 GiB for $0.018 an hour;
+  each run rounded up to a second, 10 s at least.
+- **Paused while idle:** it keeps its memory and processes at 30% of the running price, and the
+  next call wakes it in about 0.1 s, exactly where it was. Idle longer, it stops: its disk goes to
+  object storage at $0.03 per GiB a month of its own data. Nothing is deleted unless a timer says
+  so.
+- **Starts are free:** creating, forking and starting a stopped sandbox cost nothing, up to a
+  plan's starts per minute, hour and day.
+- **Fork** a running sandbox, memory and all, in one call: three copies take about 0.25 s.
+- **API keys never enter a sandbox:** it sees a placeholder, and the egress proxy puts the key in
+  HTTPS request headers, only to the hosts named. An egress allow-list by domain, wildcard, IP or
+  CIDR; DNS answers only allowed names.
+
+**Pricing.** Plans from $20 a month without VAT, the price being usage it includes; a balance
+pays past it. A free trial: 7 days with $1 of usage. [See Agent Sandboxes](https://pethost.dev/sandboxes/).
+
+**Who it is for.** Companies and developers who build on agents: AI products that run the code
+their model writes, coding-agent tools, RL and eval teams, people who run Claude Code or Codex in
+the cloud.
+
+## How the App Platform compares
 
 | If you use | The difference |
 |---|---|
@@ -599,6 +631,7 @@ No. The web panel does the same, and shows the same projects, logs and requests.
 Yes. One DNS record, and the certificate comes by itself.
 
 **Is there a free tier?**
-No: plans start at €9.99 a month, and nothing sleeps. Cancel any time:
+No: App Platform plans start at €9.99 a month, and nothing sleeps. Agent Sandboxes has a free
+trial of 7 days with $1 of usage. Cancel any time:
 [refunds and cancellation](https://pethost.dev/refunds/) has the rules.
 
