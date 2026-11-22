@@ -59,9 +59,6 @@ func printSandbox(a *app.App, sandbox *sandboxes.Sandbox) {
 	}
 	table.Row("size", fmt.Sprintf("%s, disk %d GiB", word(sizeOf(sandbox)), sandbox.DiskGib))
 	table.Row("template", ui.Clean(sandbox.Template))
-	if sandbox.ForkedFrom != "" {
-		table.Row("forked from", ui.Clean(sandbox.ForkedFrom))
-	}
 	if len(sandbox.Labels) > 0 {
 		table.Row("labels", labelsWords(sandbox.Labels))
 	}

@@ -106,9 +106,6 @@ func eventWords(out *ui.Stream, event sandboxes.SandboxEventEvent) (string, stri
 	switch e := event.(type) {
 	case sandboxes.SandboxEventLifecycle:
 		what := word(e.Change) + " (" + word(e.Reason) + ")"
-		if e.ForkedFrom != "" {
-			what += " from " + ui.Clean(e.ForkedFrom)
-		}
 		if e.Size != sandboxes.SizeUnspecified {
 			what += fmt.Sprintf(", %s, disk %d GiB", word(e.Size), e.DiskGib)
 		}
