@@ -1,6 +1,7 @@
 package remote
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"net"
@@ -10,16 +11,24 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-// A Target is where a connection goes and what it must find there.
+// A Target is where a connection goes, what it must find there and how it logs in.
 type Target struct {
-	// The machine's name.
+	// The machine's name, or a sandbox server's.
 	Host string
+	// The port its SSH listens on. Empty = 22.
+	Port string
 	// Who logs in: "<service>.<project id>", which the machine's gateway reads as that service's
-	// container.
+	// container, or a sandbox's id, which its server's gateway reads as that sandbox.
 	User string
-	// The fingerprint of the machine's host key as the machine reports it, "SHA256:...": the one
-	// key the connection takes. No file of known hosts is read or written, and nobody is asked.
+	// The fingerprint of the host key as the API reports it, "SHA256:...": the one key the
+	// connection takes. No file of known hosts is read or written, and nobody is asked.
 	HostKeyFingerprint string
+	// Where the API reports no host key: a file of known hosts, which the key a host shows first
+	// is written into, and which the host must show again from then on (known.go).
+	KnownHosts string
+	// The password to log in with instead of the key: a sandbox's connection token. It is never
+	// written anywhere.
+	Password string
 }
 
 // How a connection fails before it is one: the kinds a DialError tells apart.
@@ -38,6 +47,9 @@ type DialError struct {
 	Kind error
 	// What the network or SSH said.
 	Cause error
+	// What the host said to the person before it refused, as a sandbox server's gateway says
+	// why it takes nobody into a sandbox; empty = nothing. Text from elsewhere: clean it.
+	Banner string
 }
 
 func (e *DialError) Error() string { return e.Kind.Error() + ": " + e.Cause.Error() }
@@ -63,9 +75,15 @@ const (
 	handshakeTimeout = 20 * time.Second
 )
 
-// Dial connects to the target and logs in with the key.
+// Dial connects to the target and logs in with the key, or with the target's password, when it
+// has one: key may then be nil.
 func Dial(ctx context.Context, target Target, key *Key) (*Conn, error) {
-	address := net.JoinHostPort(target.Host, sshPort)
+	address := net.JoinHostPort(target.Host, cmp.Or(target.Port, sshPort))
+	verify, err := target.hostKeyCheck()
+	if err != nil {
+		return nil, err
+	}
+
 	dialer := net.Dialer{Timeout: dialTimeout}
 	netConn, err := dialer.DialContext(ctx, "tcp", address)
 	if err != nil {
@@ -76,11 +94,12 @@ func Dial(ctx context.Context, target Target, key *Key) (*Conn, error) {
 	// connection under it.
 	stop := context.AfterFunc(ctx, func() { netConn.Close() })
 	_ = netConn.SetDeadline(time.Now().Add(handshakeTimeout))
-	check := hostKeyCheck{want: target.HostKeyFingerprint}
+	check := hostKeyCheck{verify: verify}
 	sshConn, channels, requests, err := ssh.NewClientConn(netConn, address, &ssh.ClientConfig{
 		User:            target.User,
-		Auth:            []ssh.AuthMethod{ssh.PublicKeys(key.signer)},
+		Auth:            target.auth(key),
 		HostKeyCallback: check.callback,
+		BannerCallback:  check.banner,
 		ClientVersion:   "SSH-2.0-pethost",
 	})
 	if !stop() {
@@ -101,35 +120,73 @@ func Dial(ctx context.Context, target Target, key *Key) (*Conn, error) {
 	return c, nil
 }
 
+// auth is how the connection logs in: by the password, where the target has one, else by the
+// key.
+func (t Target) auth(key *Key) []ssh.AuthMethod {
+	if t.Password != "" {
+		return []ssh.AuthMethod{ssh.Password(t.Password)}
+	}
+	return []ssh.AuthMethod{ssh.PublicKeys(key.signer)}
+}
+
+// hostKeyCheck is how the host's key is judged: against the fingerprint the API reports, else
+// by the file of known hosts. A key that is not the one expected is ErrWrongHost.
+func (t Target) hostKeyCheck() (ssh.HostKeyCallback, error) {
+	if t.HostKeyFingerprint == "" && t.KnownHosts != "" {
+		return trustOnFirstUse(t.KnownHosts)
+	}
+	return func(_ string, _ net.Addr, key ssh.PublicKey) error {
+		if t.HostKeyFingerprint == "" || ssh.FingerprintSHA256(key) != t.HostKeyFingerprint {
+			return ErrWrongHost
+		}
+		return nil
+	}, nil
+}
+
 // hostKeyCheck holds the key a host shows against the one expected, and remembers how far the
 // handshake got: SSH's own error does not say.
 type hostKeyCheck struct {
-	want    string
+	verify  ssh.HostKeyCallback
 	shown   bool
 	matched bool
+	// Why the key was not taken, when it was not.
+	refusal error
+	// What the host said before the login, if anything.
+	said string
 }
 
-func (h *hostKeyCheck) callback(_ string, _ net.Addr, key ssh.PublicKey) error {
-	h.shown = true
-	h.matched = h.want != "" && ssh.FingerprintSHA256(key) == h.want
-	if !h.matched {
-		return ErrWrongHost
+// bannerAtMost bounds what is kept of what a host says before the login.
+const bannerAtMost = 1 << 10
+
+func (h *hostKeyCheck) banner(message string) error {
+	if len(h.said) < bannerAtMost {
+		h.said += message[:min(len(message), bannerAtMost-len(h.said))]
 	}
 	return nil
 }
 
+func (h *hostKeyCheck) callback(hostname string, remote net.Addr, key ssh.PublicKey) error {
+	h.shown = true
+	h.refusal = h.verify(hostname, remote, key)
+	h.matched = h.refusal == nil
+	return h.refusal
+}
+
 // failure is a failed handshake as a DialError: before the host showed its key the machine was
-// not reached, a wrong key is a wrong host, and after the right one the login was refused.
+// not reached, a wrong key is a wrong host, and after the right one the login was refused. A key
+// that could not be judged, as a file of known hosts that cannot be written, is that failure.
 func (h *hostKeyCheck) failure(ctx context.Context, err error) error {
 	switch {
 	case ctx.Err() != nil:
 		return ctx.Err()
 	case !h.shown:
 		return &DialError{Kind: ErrNotReached, Cause: err}
-	case !h.matched:
+	case !h.matched && errors.Is(h.refusal, ErrWrongHost):
 		return &DialError{Kind: ErrWrongHost, Cause: err}
+	case !h.matched:
+		return h.refusal
 	}
-	return &DialError{Kind: ErrRefused, Cause: err}
+	return &DialError{Kind: ErrRefused, Cause: err, Banner: h.said}
 }
 
 // Lost is closed once the connection has ended.

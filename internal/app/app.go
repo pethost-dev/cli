@@ -2,7 +2,7 @@
 // SDK's client, made when a command first calls the API. One App is made for a run, and each
 // command's function closes over it. It also has what commands share of a run: its command line
 // as a refusal repeats it (CommandLine, ShellWord), --debug's lines (Debugf), and Together, which
-// makes independent calls at once.
+// makes independent calls at once. Agent Sandboxes have a client of their own (sandboxes.go).
 //
 // The context a command works under is cobra's: cmd.Context(), which Ctrl-C cancels.
 package app
@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	pethost "github.com/pethost-dev/sdk/go"
+	"github.com/pethost-dev/sdk/go/sandboxes"
 	"github.com/spf13/pflag"
 
 	"github.com/pethost-dev/cli/internal/fail"
@@ -49,8 +50,9 @@ type App struct {
 	// not followed to its new workspace.
 	Changes bool
 
-	client *pethost.Client
-	signIn *signin.SignIn
+	client    *pethost.Client
+	sandboxes *sandboxes.Client
+	signIn    *signin.SignIn
 	// The workspace the calls name; empty = none (workspace.go).
 	workspace string
 }
@@ -109,7 +111,7 @@ func (a *App) SayToken() {
 
 // SignedIn is called after a sign-in was stored during the run: the next call uses it.
 func (a *App) SignedIn() {
-	a.signIn, a.client = nil, nil
+	a.signIn, a.client, a.sandboxes = nil, nil, nil
 }
 
 // NeedSignIn is nil when the run has a sign-in to call with, and otherwise fail.NotSignedIn. A

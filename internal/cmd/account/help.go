@@ -182,6 +182,7 @@ var sections = []struct {
 	{"Reach into a container", []string{"run", "shell", "tunnel", "files", "cp"}},
 	{"Change a project", []string{"env", "domain", "password", "rename", "rollback", "restart", "stop", "start", "backup", "volume", "github", "delete"}},
 	{"Workspaces", []string{"workspaces", "move"}},
+	{"Agent Sandboxes", []string{"sandbox"}},
 	{"The machine, and this program", []string{"machine", "login", "logout", "whoami", "update", "completion", "api", "help"}},
 }
 

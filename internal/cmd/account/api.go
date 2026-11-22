@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	pethost "github.com/pethost-dev/sdk/go"
+	"github.com/pethost-dev/sdk/go/sandboxes"
 	"github.com/spf13/cobra"
 
 	"github.com/pethost-dev/cli/internal/app"
@@ -20,12 +21,17 @@ import (
 
 //go:generate go run api_titles_gen.go
 
-// apiReference is where every method, its request and its answer are documented.
-const apiReference = "https://pethost.dev/docs/api/"
+// Where every method, its request and its answer are documented: App Platform's, and Agent
+// Sandboxes'.
+const (
+	apiReference       = "https://pethost.dev/docs/api/"
+	sandboxesReference = "https://pethost.dev/docs/sandboxes/api/"
+)
 
 // apiCommand is `pethost api [Method] [json]`: any call of the API by its name, raw. The
-// methods are the SDK client's own, found by reflection, so a method the SDK gains is a method
-// of this command with no line written here.
+// methods are the SDK clients' own, App Platform's and Agent Sandboxes', found by reflection, so
+// a method the SDK gains is a method of this command with no line written here. No method's name
+// is the other client's too.
 func apiCommand(a *app.App) *cobra.Command {
 	return &cobra.Command{
 		Use:   "api [Method] [json]",
@@ -36,13 +42,14 @@ The request is the API's JSON too: the argument after the method, or stdin when 
 argument is "-". Without one the request is empty. A field the API does not have is
 refused, never sent. A stream prints an answer a line until Ctrl-C.
 
-Without a method, every method is listed. Their requests and answers:
-` + apiReference,
+Without a method, every method is listed, App Platform's and Agent Sandboxes'. Their
+requests and answers: ` + apiReference + ` and ` + sandboxesReference,
 		Example: `  pethost api
   pethost api GetMachine
   pethost api GetProject '{"project_id": "recipes"}'
   pethost api DeployProject - < request.json
-  pethost api TailContainerLogs '{"project_id": "recipes"}'`,
+  pethost api TailContainerLogs '{"project_id": "recipes"}'
+  pethost api ListSandboxes '{"states": ["SANDBOX_STATE_RUNNING"]}'`,
 		Args:              cobra.MaximumNArgs(2),
 		ValidArgsFunction: completeAPIMethods,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -55,16 +62,28 @@ Without a method, every method is listed. Their requests and answers:
 	}
 }
 
-// apiMethods are the API's calls by name: each method of the SDK's client that takes a context
+// An apiMethod is a call of the API: a method of one of the SDK's clients.
+type apiMethod struct {
+	reflect.Method
+	// The client it is called on, as the run makes it.
+	client func(a *app.App) any
+	// Where its request and answer are documented.
+	reference string
+}
+
+// apiMethods are the API's calls by name: each method of the SDK's clients that takes a context
 // and a request.
-func apiMethods() map[string]reflect.Method {
-	client := reflect.TypeFor[*pethost.Client]()
-	methods := map[string]reflect.Method{}
-	for i := range client.NumMethod() {
-		if method := client.Method(i); isAPICall(method.Type) {
-			methods[method.Name] = method
+func apiMethods() map[string]apiMethod {
+	methods := map[string]apiMethod{}
+	add := func(client reflect.Type, of func(a *app.App) any, reference string) {
+		for i := range client.NumMethod() {
+			if method := client.Method(i); isAPICall(method.Type) {
+				methods[method.Name] = apiMethod{Method: method, client: of, reference: reference}
+			}
 		}
 	}
+	add(reflect.TypeFor[*pethost.Client](), func(a *app.App) any { return a.Client() }, apiReference)
+	add(reflect.TypeFor[*sandboxes.Client](), func(a *app.App) any { return a.Sandboxes() }, sandboxesReference)
 	return methods
 }
 
@@ -103,7 +122,7 @@ func listAPIMethods(a *app.App) {
 		table.Row(name, apiTitleOf(name))
 	}
 	table.Flush()
-	a.UI.Info("Their requests and answers: %s", apiReference)
+	a.UI.Info("Their requests and answers: %s and %s", apiReference, sandboxesReference)
 }
 
 func completeAPIMethods(cmd *cobra.Command, args []string, toComplete string) ([]cobra.Completion, cobra.ShellCompDirective) {
@@ -129,9 +148,8 @@ func callAPI(ctx context.Context, a *app.App, name string, rest []string) error 
 	if err := a.NeedSignIn(); err != nil {
 		return err
 	}
-	client := a.Client()
 
-	results := method.Func.Call([]reflect.Value{reflect.ValueOf(client), reflect.ValueOf(ctx), request})
+	results := method.Func.Call([]reflect.Value{reflect.ValueOf(method.client(a)), reflect.ValueOf(ctx), request})
 	if len(results) == 1 {
 		err := printAPIStream(a, results[0])
 		if ctx.Err() != nil {
@@ -148,7 +166,7 @@ func callAPI(ctx context.Context, a *app.App, name string, rest []string) error 
 // findAPIMethod finds a method by its name, in any case: the API's reference writes
 // QueryHttpTraffic where Go writes QueryHTTPTraffic. A name that is no method's is answered
 // with the nearest ones.
-func findAPIMethod(name string) (reflect.Method, error) {
+func findAPIMethod(name string) (apiMethod, error) {
 	var near []string
 	for _, candidate := range apiMethodNames() {
 		if strings.EqualFold(candidate, name) {
@@ -161,10 +179,10 @@ func findAPIMethod(name string) (reflect.Method, error) {
 
 	refusal := fail.Choice(fmt.Sprintf("The API has no method %q.", name), near...)
 	if len(near) == 0 {
-		return reflect.Method{}, refusal.WithLead("Every method:", "pethost api")
+		return apiMethod{}, refusal.WithLead("Every method:", "pethost api")
 	}
 	refusal.Lead = "Did you mean:"
-	return reflect.Method{}, refusal
+	return apiMethod{}, refusal
 }
 
 // isNear says whether a mistyped name may have meant a method: it is part of the method's name
@@ -196,7 +214,7 @@ func editDistance(a, b string) int {
 
 // readAPIRequest reads the method's request from the API's JSON, which the SDK's types read
 // themselves, refusing a field the API does not have. No JSON = the empty request.
-func readAPIRequest(a *app.App, method reflect.Method, rest []string) (reflect.Value, error) {
+func readAPIRequest(a *app.App, method apiMethod, rest []string) (reflect.Value, error) {
 	request := reflect.New(method.Type.In(2).Elem())
 	if len(rest) == 0 {
 		return request, nil
@@ -216,7 +234,7 @@ func readAPIRequest(a *app.App, method reflect.Method, rest []string) (reflect.V
 
 	if err := json.Unmarshal([]byte(text), request.Interface()); err != nil {
 		refusal := fail.Choice(fmt.Sprintf("That is not a request of %s: %s.", method.Name, err))
-		return request, refusal.WithLead("Its fields:", apiReference)
+		return request, refusal.WithLead("Its fields:", method.reference)
 	}
 	return request, nil
 }

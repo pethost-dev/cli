@@ -18,6 +18,8 @@ type Local struct {
 	// The person's terminal, which the program then gets one like. nil = none: the program reads
 	// a pipe and sees its end.
 	Terminal *Terminal
+	// A command line to run instead of the login shell. Empty = the shell.
+	Command string
 }
 
 // A Terminal is the person's terminal while a session holds it: already in raw mode, so that
@@ -32,8 +34,8 @@ type Terminal struct {
 	Restore func()
 }
 
-// Shell runs the container's login shell on the connection until it exits, and returns its exit
-// status. The machine's refusal of the login target comes the same way: its sentence on Err,
+// Shell runs the container's login shell on the connection, or the Local's command, until it
+// exits, and returns its exit status. The machine's refusal of the login target comes the same way: its sentence on Err,
 // and its status. ErrLost = the connection ended before the shell did.
 func (c *Conn) Shell(ctx context.Context, local Local) (status int, err error) {
 	channel, requests, err := c.client.OpenChannel("session", nil)
@@ -112,12 +114,15 @@ type (
 		Columns, Rows uint32
 		Width, Height uint32
 	}
+	execRequest struct {
+		Command string
+	}
 )
 
 // noModes is an empty list of terminal modes: the program's terminal keeps its own.
 const noModes = "\x00"
 
-// start asks for a terminal, where the person has one, and then for the shell.
+// start asks for a terminal, where the person has one, and then for the shell, or the command.
 func (s *session) start() error {
 	if terminal := s.local.Terminal; terminal != nil {
 		s.columns, s.rows = terminal.Size()
@@ -126,13 +131,16 @@ func (s *session) start() error {
 			return err
 		}
 	}
+	if s.local.Command != "" {
+		return s.request("exec", ssh.Marshal(execRequest{Command: s.local.Command}))
+	}
 	return s.request("shell", nil)
 }
 
 func (s *session) request(name string, payload []byte) error {
 	granted, err := s.channel.SendRequest(name, true, payload)
 	if err == nil && !granted {
-		return errors.New("the machine refused the session's " + name)
+		return errors.New("the SSH server refused the session's " + name)
 	}
 	return err
 }

@@ -4,6 +4,9 @@
 // A string of it may be a machine's text. JSON escapes the control characters below U+0020 by
 // itself; the rest of what a terminal obeys (the C1 controls, and the controls that reorder
 // letters) is written here as its \u escape, which reads back as the same string.
+//
+// A sandbox's connection is written without its token (token.go), by every command and by
+// `pethost api`: this is where the CLI writes JSON, so no command can print it.
 package jsonout
 
 import (
@@ -32,7 +35,7 @@ func write(w io.Writer, value any, indent string) error {
 	encoder := json.NewEncoder(&encoded)
 	encoder.SetEscapeHTML(false)
 	encoder.SetIndent("", indent)
-	if err := encoder.Encode(value); err != nil {
+	if err := encoder.Encode(withoutTokens(value)); err != nil {
 		return err
 	}
 	_, err := w.Write(escaped(encoded.Bytes()))

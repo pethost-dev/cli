@@ -7,6 +7,7 @@ import (
 	"time"
 
 	pethost "github.com/pethost-dev/sdk/go"
+	"github.com/pethost-dev/sdk/go/sandboxes"
 	"github.com/spf13/cobra"
 
 	"github.com/pethost-dev/cli/internal/app"
@@ -131,6 +132,24 @@ func store(a *app.App, stored signin.Stored) (*signin.Stored, error) {
 	return &stored, nil
 }
 
+// sayWhoseSandboxes ends `pethost login` for an account that has no machine but has Agent
+// Sandboxes, as the panel answers for them, and says whether it did: an account of sandboxes
+// alone is not told to choose a machine's plan.
+func sayWhoseSandboxes(ctx context.Context, a *app.App) bool {
+	workspace, err := a.Sandboxes().GetWorkspace(ctx, nil)
+	api, _ := errors.AsType[*sandboxes.Error](err)
+	switch {
+	case err == nil:
+		a.UI.Done("Signed in. Your Agent Sandboxes: %s", workspace.Name)
+	case api != nil && api.WorkspaceChoice != nil:
+		a.UI.Done("Signed in. It may act in %d workspaces of Agent Sandboxes:  %s", api.WorkspaceChoice.Total, a.UI.Err.Bold("pethost sandbox workspace"))
+	default:
+		return false
+	}
+	a.UI.Next("pethost sandbox new --name my-sandbox", "pethost sandbox")
+	return true
+}
+
 // sayWhoSignedIn ends `pethost login` with what the panel answered about the account's machine:
 // the machine in a few words, or that there is none yet, with the API's link to where a plan is
 // chosen. The sign-in is stored by now, so a machine that does not answer is not this command's
@@ -141,6 +160,9 @@ func sayWhoSignedIn(ctx context.Context, a *app.App, answer *pethost.GetMachineR
 	case err == nil && answer.Machine != nil:
 		a.UI.Done("Signed in. Your machine: %s", say.Machine(answer.Machine))
 	case api != nil && api.NoMachine != nil:
+		if sayWhoseSandboxes(ctx, a) {
+			break
+		}
 		a.UI.Done("Signed in.")
 		a.UI.Info("%s", fail.NoMachineMessage(api.NoMachine))
 	case api != nil && api.WorkspaceChoice != nil:

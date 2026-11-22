@@ -20,6 +20,7 @@ import (
 	"github.com/pethost-dev/cli/internal/cmd/kernel"
 	"github.com/pethost-dev/cli/internal/cmd/observe"
 	"github.com/pethost-dev/cli/internal/cmd/reach"
+	"github.com/pethost-dev/cli/internal/cmd/sandbox"
 	"github.com/pethost-dev/cli/internal/cmd/workspace"
 	"github.com/pethost-dev/cli/internal/fail"
 	"github.com/pethost-dev/cli/internal/target"
@@ -155,10 +156,11 @@ func tree(a *app.App) *cobra.Command {
 
 	a.Flags(root.PersistentFlags())
 	_ = root.RegisterFlagCompletionFunc("project", target.CompleteProjects(a))
-	_ = root.RegisterFlagCompletionFunc("workspace", target.CompleteWorkspaces(a))
+	_ = root.RegisterFlagCompletionFunc("workspace", completeWorkspaces(a))
 
 	for _, commands := range [][]*cobra.Command{
-		kernel.Commands(a), observe.Commands(a), reach.Commands(a), change.Commands(a), workspace.Commands(a), account.Commands(a), panelCommands(a),
+		kernel.Commands(a), observe.Commands(a), reach.Commands(a), change.Commands(a), workspace.Commands(a), sandbox.Commands(a),
+		account.Commands(a), panelCommands(a),
 	} {
 		root.AddCommand(commands...)
 	}
@@ -178,7 +180,19 @@ func tree(a *app.App) *cobra.Command {
 
 // takeLocalPaths are the commands whose arguments are files of this computer, which a shell
 // completes by itself.
-var takeLocalPaths = []string{"pethost deploy", "pethost cp", "pethost env push"}
+var takeLocalPaths = []string{"pethost deploy", "pethost cp", "pethost env push", "pethost sandbox cp"}
+
+// completeWorkspaces completes -w: under pethost sandbox a workspace of sandboxes, else an App
+// Platform workspace.
+func completeWorkspaces(a *app.App) cobra.CompletionFunc {
+	ofSandboxes, ofMachines := sandbox.CompleteWorkspaces(a), target.CompleteWorkspaces(a)
+	return func(cmd *cobra.Command, args []string, toComplete string) ([]cobra.Completion, cobra.ShellCompDirective) {
+		if sandbox.Under(cmd) {
+			return ofSandboxes(cmd, args, toComplete)
+		}
+		return ofMachines(cmd, args, toComplete)
+	}
+}
 
 // completeNoFiles keeps a shell from offering this folder's files to a command that takes none:
 // a version, a host and a path on the machine are not files here. A command that completes

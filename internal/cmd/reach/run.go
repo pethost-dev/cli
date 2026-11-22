@@ -3,7 +3,6 @@ package reach
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"strings"
 
@@ -14,13 +13,6 @@ import (
 	"github.com/pethost-dev/cli/internal/fail"
 	"github.com/pethost-dev/cli/internal/target"
 	"github.com/pethost-dev/cli/internal/ui"
-)
-
-// run exits as the command in the container did, so its own ends need codes no command is
-// likely to use: the ones `timeout` and `docker run` gave these meanings.
-const (
-	exitTimedOut = 124 // The machine stopped the command at its timeout.
-	exitOwn      = 125 // The CLI's own failure: the command did not run, or its end is not known.
 )
 
 type runOptions struct {
@@ -94,24 +86,9 @@ func splitAtDash(cmd *cobra.Command, args []string) (service string, command []s
 	return service, args[dash:], nil
 }
 
-// ownFailure is an end of run that is not the command's: it exits 125, whatever kind of failure
-// it is, so that a script tells it from every code the command may exit with. Ctrl-C stays 130.
+// ownFailure is an end of run that is not the command's: it exits 125 (fail.Own).
 func ownFailure(a *app.App, err error) error {
-	if err == nil {
-		return nil
-	}
-	e := fail.From(err)
-	if e.Exit == exitOwn || e.Exit == fail.ExitInterrupted || e.Code == commandEnded {
-		return e
-	}
-	// How a failure is worded for people goes by its exit code: it is printed as the kind it
-	// is before the code becomes run's own.
-	if !a.JSON {
-		fail.Print(a.UI, e, false)
-		e.Shown = true
-	}
-	e.Exit = exitOwn
-	return e
+	return fail.Own(a.UI, a.JSON, err)
 }
 
 func runInService(ctx context.Context, a *app.App, named string, command []string, options runOptions) error {
@@ -189,9 +166,6 @@ func pipedIn(a *app.App, options runOptions) (string, error) {
 	return string(piped), err
 }
 
-// commandEnded is the code of the end that is the command's own, not the CLI's failure.
-const commandEnded = "COMMAND_ENDED"
-
 // showRun writes the command's output where the command wrote it, and ends as the command did.
 func showRun(a *app.App, project target.Project, service string, answer *pethost.RunServiceCommandResponse) error {
 	if a.JSON {
@@ -206,11 +180,9 @@ func showRun(a *app.App, project target.Project, service string, answer *pethost
 
 	switch {
 	case answer.TimedOut:
-		return &fail.Error{Exit: exitTimedOut, Code: commandEnded, Shown: true,
-			Message: "The machine stopped the command at its timeout."}
+		return fail.TimedOut("The machine stopped the command at its timeout.")
 	case answer.ExitCode != 0:
-		return &fail.Error{Exit: exitCodeOf(int(answer.ExitCode)), Code: commandEnded, Shown: true,
-			Message: fmt.Sprintf("The command exited with code %d.", answer.ExitCode)}
+		return fail.Ended(int(answer.ExitCode), "The command exited with code %d.", answer.ExitCode)
 	}
 	return nil
 }
@@ -234,13 +206,4 @@ func sayCut(a *app.App, project target.Project, service string, answer *pethost.
 	if answer.TimedOut {
 		a.UI.ErrLine(a.UI.Err.Cross() + "The machine stopped the command at its timeout. Give it longer with --timeout-seconds, or run it in  " + shell)
 	}
-}
-
-// exitCodeOf is a command's exit code as this process can exit with it: one byte, and never 0
-// for a command that did not exit with 0.
-func exitCodeOf(code int) int {
-	if code < 0 || code > 255 {
-		return 255
-	}
-	return code
 }

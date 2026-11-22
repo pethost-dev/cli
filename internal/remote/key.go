@@ -1,10 +1,11 @@
-// Package remote is SSH into a service's container, inside the binary: this computer's own key,
-// the connection to the machine's gateway, checked against the host key the machine reports and
-// kept alive, a program's session on a terminal or a pipe, and a local port forwarded to the
-// container.
+// Package remote is SSH into a service's container, or into a sandbox, inside the binary: this
+// computer's own key, or a sandbox's token as the password, the connection to the machine's
+// gateway or the sandbox server's, checked against the host key the machine reports or, where
+// the API reports none, against a file of known hosts, and kept alive, a program's session on a
+// terminal or a pipe, and a local port forwarded to the container.
 //
-// It knows SSH and nothing of the API: who to log in as, where, and which host key to expect are
-// given to it.
+// It knows SSH and nothing of the API: who to log in as, where, how and which host key to expect
+// are given to it.
 package remote
 
 import (

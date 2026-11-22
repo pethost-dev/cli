@@ -19,6 +19,9 @@ import (
 // machine has not got, a call that needed a workspace, a project that moved. Any other failure
 // is returned as it is; a command that worded a workspace's refusal itself keeps its words.
 func Explain(ctx context.Context, a *app.App, failure error) error {
+	if api, ok := asSandboxesChoice(failure); ok {
+		return explainSandboxesChoice(a, api)
+	}
 	api, ok := errors.AsType[*pethost.Error](failure)
 	_, worded := failure.(*fail.Error)
 	switch {

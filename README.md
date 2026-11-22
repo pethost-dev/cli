@@ -38,6 +38,7 @@ Every screen below is the real output of the command above it. The project is a 
 - [How do I go back a version?](#how-do-i-go-back-a-version)
 - [How do I deploy from GitHub?](#how-do-i-deploy-from-github)
 - [How do I deploy from CI?](#how-do-i-deploy-from-ci)
+- [How do I run code in a sandbox?](#how-do-i-run-code-in-a-sandbox)
 - [How do I use it with an AI agent?](#how-do-i-use-it-with-an-ai-agent)
 - [Every command](#every-command)
 
@@ -422,6 +423,73 @@ https://recipes.sam.pethost.app
 Only the address is on stdout, so `url=$(pethost deploy)` holds it. Everything else is on
 stderr. A deploy that failed exits 1 and prints why.
 
+## How do I run code in a sandbox?
+
+[Agent Sandboxes](https://pethost.dev/sandboxes/) are Linux microVMs, each a Firecracker VM with
+its own kernel, to run code, coding agents and a desktop in. `pethost sandbox`, or `pethost sbx`,
+makes and drives them, in a workspace of sandboxes of your account.
+
+<!-- The outputs of this section are from the sandboxes' test stand on 2026-11-21, whose
+addresses they show: run them again against console.pethost.dev before the release that brings
+`pethost sandbox`, and put that run's output here. The agent's has not been taken yet. -->
+
+```
+$ pethost sandbox new
+✓ Made sandbox w6r0v0csyih1dfs7: default, running, from base@15, in <1 s
+w6r0v0csyih1dfs7
+Next:   pethost sandbox run w6r0v0csyih1dfs7 -- <command>   ·   pethost sandbox shell w6r0v0csyih1dfs7
+
+$ pethost sandbox cp ./app w6r0v0csyih1dfs7:app
+✓ Copied ./app to w6r0v0csyih1dfs7:app · 2 KB in <1 s
+
+$ pethost sandbox run w6r0v0csyih1dfs7 -- python3 app/hello.py
+42
+```
+
+The id is the answer, alone on stdout, so a script keeps it: `id=$(pethost sandbox new)`. `run`
+writes the command's output as it comes and exits as the command did; Ctrl-C stops it, and `-d`
+leaves it running. `cp` copies a file of any size or a directory, either way, straight to the
+sandbox's server.
+
+```
+$ echo 'ls app' | pethost sandbox shell w6r0v0csyih1dfs7
+hello.py
+
+$ pethost sandbox show w6r0v0csyih1dfs7
+id         w6r0v0csyih1dfs7
+state      running since 22:47
+next       paused today at 22:52, unless something happens in it
+size       default, disk 20 GiB
+template   base@15
+labels     name=readme
+ssh        ssh w6r0v0csyih1dfs7@37-187-136-48.sslip.io -p 2222
+panel      http://localhost:50617/w/gyc2hqsh/sandboxes/w6r0v0csyih1dfs7
+used       running 1 s
+created    today at 22:47
+```
+
+`shell` opens a terminal in the sandbox over SSH, with nothing to install. A sandbox pauses
+after 5 minutes with nothing happening in it, keeping its memory and processes, and wakes in a
+moment at the next command, SSH login or request to one of its ports:
+
+```
+$ pethost sandbox pause w6r0v0csyih1dfs7
+w6r0v0csyih1dfs7   paused
+
+$ pethost sandbox ports w6r0v0csyih1dfs7 --open 8000
+8000   https://8000-w6r0v0csyih1dfs7.37-187-136-48.sslip.io
+```
+
+A coding agent in the sandbox takes a prompt, and what it writes comes to your terminal:
+
+```
+$ pethost sandbox agent w6r0v0csyih1dfs7 'Add a test for hello.py'
+```
+
+`pethost help sandbox` lists the rest: `fork` copies a sandbox with its memory and processes,
+`set` changes its size, lifecycle, egress or environment, `template save` keeps its files to
+start others from, and `volume`, `secret`, `events` and `workspace` do what they say.
+
 ## How do I use it with an AI agent?
 
 The easiest way is the plugin, which needs no terminal. Tell your agent:
@@ -454,11 +522,11 @@ the same:
   | 4 | Try later: the project is busy, or the machine does not answer. |
   | 130 | Interrupted. |
 
-  `pethost run` exits as the command in the container did, 124 when it timed out and 125 when
-  `pethost` itself failed.
+  `pethost run` and `pethost sandbox run` exit as the command did, 124 when it timed out and
+  125 when `pethost` itself failed.
 
 - **`pethost api <Method> '<json>'`** calls any method of the
-  [API](https://pethost.dev/docs/api/), raw.
+  [API](https://pethost.dev/docs/api/), or of [Agent Sandboxes'](https://pethost.dev/docs/sandboxes/api/), raw.
 
 ## Every command
 
@@ -505,6 +573,13 @@ Change a project
   github        Deploy from a GitHub repository: list them, connect one, or stop
   delete        Delete the project
 
+Workspaces
+  workspaces    Your workspaces: each plan's machine, its size and what is free
+  move          Move this folder's project to another workspace
+
+Agent Sandboxes
+  sandbox       Agent Sandboxes: microVMs for code, coding agents and a desktop
+
 The machine, and this program
   machine       The machine: its resources, SSH keys and open sessions
   login         Sign in, in the browser
@@ -516,7 +591,7 @@ The machine, and this program
   help          What pethost does, or how one command is used
 
 pethost help <command> shows how a command is used, with examples.
-Every command takes   -p <project>   --json   -y, --yes   -q   --debug
+Every command takes   -p <project>   -w <workspace>   --json   -y, --yes   -q   --debug
 ```
 
 - `pethost help <command>` shows how one command is used, and ends with examples.

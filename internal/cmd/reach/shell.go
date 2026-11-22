@@ -3,11 +3,6 @@ package reach
 import (
 	"context"
 	"errors"
-	"fmt"
-	"io"
-	"os"
-	"sync"
-	"sync/atomic"
 
 	pethost "github.com/pethost-dev/sdk/go"
 	"github.com/spf13/cobra"
@@ -16,6 +11,7 @@ import (
 	"github.com/pethost-dev/cli/internal/fail"
 	"github.com/pethost-dev/cli/internal/remote"
 	"github.com/pethost-dev/cli/internal/say"
+	"github.com/pethost-dev/cli/internal/session"
 	"github.com/pethost-dev/cli/internal/target"
 	"github.com/pethost-dev/cli/internal/ui"
 )
@@ -94,104 +90,14 @@ func firstOf(args []string) string {
 
 // openShell runs the container's shell until it exits, and ends as it did.
 func openShell(ctx context.Context, a *app.App, conn *remote.Conn) error {
-	local, giveBack := localSide(a)
-	defer giveBack()
-
-	status, err := conn.Shell(ctx, local)
-	// The terminal is the person's again before anything more is written to it.
-	giveBack()
-
-	if err != nil && local.Terminal != nil {
-		a.UI.ErrLine("") // The cursor stands wherever the shell left it.
-	}
+	status, err := session.Run(ctx, a.UI, conn, "")
 	switch {
 	case errors.Is(err, remote.ErrLost):
 		return lostConnection(a, exitSessionBroke, "The connection to your machine was lost.")
 	case err != nil:
 		return err
 	case status != 0:
-		return &fail.Error{Exit: exitCodeOf(status), Code: commandEnded, Shown: true,
-			Message: fmt.Sprintf("The shell exited with code %d.", status)}
+		return fail.Ended(status, "The shell exited with code %d.", status)
 	}
 	return nil
-}
-
-// localSide is this computer's side of the session, and what gives it back when the session
-// has ended. At a terminal the keyboard and the screen are the program's: raw mode, the
-// window's size, TERM. With stdin piped the program gets no terminal, and what it prints is
-// cleaned like any other text from the machine before a person's terminal shows it.
-func localSide(a *app.App) (local remote.Local, giveBack func()) {
-	restore, err := a.UI.Raw()
-	if err != nil {
-		out, errOut := a.UI.Out.Cleaned(), a.UI.Err.Cleaned()
-		return remote.Local{In: a.UI.In, Out: out, Err: errOut}, sync.OnceFunc(func() {
-			_ = out.Close()
-			_ = errOut.Close()
-		})
-	}
-
-	stop := make(chan struct{})
-	giveBack = sync.OnceFunc(func() {
-		close(stop)
-		restore()
-	})
-	out, said := io.Writer(a.UI.Out), io.Writer(a.UI.Err)
-	if a.UI.Out.Terminal && a.UI.Err.Terminal {
-		drawn := &drawn{Writer: out}
-		out, said = drawn, &ownLine{Writer: said, after: drawn}
-	}
-	return remote.Local{
-		In:  a.UI.Typed(stop),
-		Out: out,
-		Err: said,
-		Terminal: &remote.Terminal{
-			Name:    terminalName(),
-			Size:    a.UI.Window,
-			Restore: restore,
-		},
-	}, giveBack
-}
-
-// On a terminal the session's stderr is the machine's gateway speaking: why it opens no
-// session, or why it ended one. The program's own stderr comes with its output. So the
-// gateway's sentence would start wherever the program left the cursor, glued to a prompt or
-// over a full-screen program's last line: it gets a line of its own.
-
-// drawn is the program's output, which remembers whether any came.
-type drawn struct {
-	io.Writer
-	any atomic.Bool
-}
-
-func (d *drawn) Write(p []byte) (int, error) {
-	if len(p) > 0 {
-		d.any.Store(true)
-	}
-	return d.Writer.Write(p)
-}
-
-// ownLine is the gateway's words, started on a new, empty line once the program has drawn.
-type ownLine struct {
-	io.Writer
-	after *drawn
-	begun bool
-}
-
-func (o *ownLine) Write(p []byte) (int, error) {
-	if !o.begun && o.after.any.Load() {
-		if _, err := io.WriteString(o.Writer, "\r\n\x1b[K"); err != nil {
-			return 0, err
-		}
-	}
-	o.begun = true
-	return o.Writer.Write(p)
-}
-
-// terminalName is the kind of terminal the program is told it has: TERM, or the common one
-// where nothing sets it, as on Windows, whose console speaks the same sequences.
-func terminalName() string {
-	if name := os.Getenv("TERM"); name != "" {
-		return name
-	}
-	return "xterm-256color"
 }

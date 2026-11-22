@@ -9,6 +9,7 @@ import (
 	"time"
 
 	pethost "github.com/pethost-dev/sdk/go"
+	"github.com/pethost-dev/sdk/go/sandboxes"
 
 	"github.com/pethost-dev/cli/internal/say"
 	"github.com/pethost-dev/cli/internal/ui"
@@ -31,6 +32,9 @@ func From(err error) *Error {
 	}
 	if api, ok := errors.AsType[*pethost.Error](err); ok {
 		return fromAPI(api)
+	}
+	if api, ok := errors.AsType[*sandboxes.Error](err); ok {
+		return fromSandboxes(api)
 	}
 	return &Error{Exit: ExitFailed, Code: "FAILED", Message: err.Error(), cause: err}
 }

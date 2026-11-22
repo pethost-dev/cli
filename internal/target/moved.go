@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	pethost "github.com/pethost-dev/sdk/go"
+	"github.com/pethost-dev/sdk/go/sandboxes"
 
 	"github.com/pethost-dev/cli/internal/app"
 	"github.com/pethost-dev/cli/internal/fail"
@@ -20,6 +21,9 @@ import (
 // given by -w: a call that needed one, where the person can pick it, and a read of a project
 // that moved, which follows it. An error is the end in place of err.
 func Again(ctx context.Context, a *app.App, err error) (string, bool, error) {
+	if api, ok := errors.AsType[*sandboxes.Error](err); ok {
+		return sandboxesAgain(a, api)
+	}
 	api, ok := errors.AsType[*pethost.Error](err)
 	switch {
 	case !ok:
