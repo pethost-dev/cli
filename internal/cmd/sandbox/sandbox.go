@@ -5,7 +5,7 @@
 //
 // A file a command: list, new (with settings.go, the flags of a sandbox's settings, which set
 // shares), show, run (with run_follow.go), shell, cp (with cp_up.go, cp_down.go and tar.go), the
-// state changes in state.go, fork, open, agent (with agent_follow.go), ports, url, set, events,
+// state changes in state.go, open, agent (with agent_follow.go), ports, url, set, events,
 // template, volume, secret and workspace. words.go says what the API's values are in words,
 // refusal.go adds the next command to a refusal of one sandbox, named.go finds a sandbox a person
 // names by its name, and complete.go completes ids and names.
@@ -51,7 +51,7 @@ something acts in that workspace too.`,
 
 	cmd.AddCommand(
 		list, newCommand(a), showCommand(a), runCommand(a), shellCommand(a), cpCommand(a),
-		pauseCommand(a), resumeCommand(a), stopCommand(a), rmCommand(a), forkCommand(a),
+		pauseCommand(a), resumeCommand(a), stopCommand(a), rmCommand(a),
 		openCommand(a), agentCommand(a), portsCommand(a), urlCommand(a), setCommand(a),
 		eventsCommand(a), templateCommand(a), volumeCommand(a), secretCommand(a), workspaceCommand(a),
 	)

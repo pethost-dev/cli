@@ -7,8 +7,8 @@ import (
 )
 
 // A sandbox's Connection is written without its token, which is root in the sandbox: wherever
-// a value holds one (ConnectSandbox's answer, a Sandbox that CreateSandbox, ForkSandbox or a
-// start answered), what is written is a copy with the token left out, and the value stays as it
+// a value holds one (ConnectSandbox's answer, a Sandbox that CreateSandbox or a start
+// answered), what is written is a copy with the token left out, and the value stays as it
 // was, since the SDK keeps the connection for the calls that need it.
 
 var connectionType = reflect.TypeFor[sandboxes.Connection]()
