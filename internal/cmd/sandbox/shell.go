@@ -72,7 +72,11 @@ func shell(ctx context.Context, a *app.App, id, command string) error {
 	if err != nil {
 		return err
 	}
-	conn, err := dialSandbox(ctx, a, c, idOf(ctx, c, id))
+	id, err = idOf(ctx, c, id)
+	if err != nil {
+		return err
+	}
+	conn, err := dialSandbox(ctx, a, c, id)
 	if err != nil {
 		return err
 	}

@@ -46,7 +46,10 @@ once and is never printed: where no browser opens, the page's address is said in
 		if err != nil {
 			return err
 		}
-		id := idOf(cmd.Context(), c, args[0])
+		id, err := idOf(cmd.Context(), c, args[0])
+		if err != nil {
+			return err
+		}
 		if options.terminal || options.desktop {
 			return openLink(cmd.Context(), a, c, id, options)
 		}

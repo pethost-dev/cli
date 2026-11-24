@@ -22,7 +22,9 @@ func copyOut(ctx context.Context, a *app.App, from side, local string) error {
 	if err != nil {
 		return err
 	}
-	from.sandbox = idOf(ctx, c, from.sandbox)
+	if from.sandbox, err = idOf(ctx, c, from.sandbox); err != nil {
+		return err
+	}
 	kind, err := kindOf(ctx, c, from.sandbox, from.path)
 	if err != nil {
 		return err

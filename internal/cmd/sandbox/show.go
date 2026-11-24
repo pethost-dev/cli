@@ -28,7 +28,10 @@ ports and what it has used so far.`,
 			if err != nil {
 				return err
 			}
-			id := idOf(cmd.Context(), c, args[0])
+			id, err := idOf(cmd.Context(), c, args[0])
+			if err != nil {
+				return err
+			}
 			sandbox, err := c.GetSandbox(cmd.Context(), &sandboxes.GetSandboxRequest{SandboxID: id})
 			if err != nil {
 				return about(id, err)

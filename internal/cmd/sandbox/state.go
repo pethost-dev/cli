@@ -131,7 +131,12 @@ func changeEach(ctx context.Context, a *app.App, c *sandboxes.Client, ids []stri
 	calls := make([]func() error, len(ids))
 	for i, typed := range ids {
 		calls[i] = func() error {
-			answers[i], errs[i] = call(ctx, c, idOf(ctx, c, typed))
+			id, err := idOf(ctx, c, typed)
+			if err != nil {
+				errs[i] = err
+				return nil
+			}
+			answers[i], errs[i] = call(ctx, c, id)
 			return nil
 		}
 	}

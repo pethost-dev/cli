@@ -90,7 +90,10 @@ func run(ctx context.Context, a *app.App, id string, words []string, options run
 	if err != nil {
 		return err
 	}
-	id = idOf(ctx, c, id)
+	id, err = idOf(ctx, c, id)
+	if err != nil {
+		return err
+	}
 	timeout, err := seconds("timeout", options.timeout)
 	if err != nil {
 		return err

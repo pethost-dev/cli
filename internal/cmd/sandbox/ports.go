@@ -37,7 +37,10 @@ a private port answers only a request with its token (pethost sandbox url --toke
 		if err != nil {
 			return err
 		}
-		id := idOf(cmd.Context(), c, args[0])
+		id, err := idOf(cmd.Context(), c, args[0])
+		if err != nil {
+			return err
+		}
 		sandbox, err := c.GetSandbox(cmd.Context(), &sandboxes.GetSandboxRequest{SandboxID: id})
 		if err != nil {
 			return about(id, err)
@@ -127,7 +130,10 @@ func portURL(ctx context.Context, a *app.App, id string, port, ttl uint32, withT
 	if err != nil {
 		return err
 	}
-	id = idOf(ctx, c, id)
+	id, err = idOf(ctx, c, id)
+	if err != nil {
+		return err
+	}
 	sandbox, err := c.GetSandbox(ctx, &sandboxes.GetSandboxRequest{SandboxID: id})
 	if err != nil {
 		return about(id, err)

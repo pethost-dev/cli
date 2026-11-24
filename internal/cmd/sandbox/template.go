@@ -118,7 +118,10 @@ version is the answer, "name@version"; it is ready once uploaded, some seconds a
 		if err != nil {
 			return err
 		}
-		id := idOf(cmd.Context(), c, args[0])
+		id, err := idOf(cmd.Context(), c, args[0])
+		if err != nil {
+			return err
+		}
 		template, err := c.CreateTemplate(cmd.Context(), &sandboxes.CreateTemplateRequest{SandboxID: id, Name: args[1], Description: description})
 		if err != nil {
 			return about(id, err)

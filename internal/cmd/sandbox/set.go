@@ -45,7 +45,10 @@ name another sandbox has changes nothing. The answer is the settings' new revisi
 		if err != nil {
 			return err
 		}
-		id := idOf(ctx, c, args[0])
+		id, err := idOf(ctx, c, args[0])
+		if err != nil {
+			return err
+		}
 		sandbox, err := c.GetSandbox(ctx, &sandboxes.GetSandboxRequest{SandboxID: id})
 		if err != nil {
 			return about(id, err)

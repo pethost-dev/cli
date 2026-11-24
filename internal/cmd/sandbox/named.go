@@ -19,19 +19,22 @@ var idShape = regexp.MustCompile(`^[a-z0-9]{16}$`)
 // Else it is a name: the workspace's sandbox of exactly that name, which ListSandboxes finds. The
 // API takes a name nowhere it takes an id: letting a person type a name is this command line's
 // presentation alone, so it asks the one call that knows names, and looks a name up in one
-// workspace, the one -w names or the only one, as any list does. A lookup that finds nothing or
-// fails (several workspaces and no -w, say) leaves typed as an id, which needs no workspace: the
-// call made with it then says what is wrong. A name is unique among the sandboxes that are not
-// deleted, which the lookup lists alone, so it finds one at most.
-func idOf(ctx context.Context, c *sandboxes.Client, typed string) string {
+// workspace, the one -w names or the only one, as any list does. A lookup error (such as several
+// workspaces with no -w) is returned directly instead of falling through to NOT_FOUND; a lookup
+// that finds nothing leaves typed as given so the caller's RPC reports it. A name is unique among
+// the sandboxes that are not deleted, which the lookup lists alone, so it finds one at most.
+func idOf(ctx context.Context, c *sandboxes.Client, typed string) (string, error) {
 	if idShape.MatchString(typed) {
-		return typed
+		return typed, nil
 	}
 	found, err := c.ListSandboxes(ctx, &sandboxes.ListSandboxesRequest{Name: typed, PageSize: 1})
-	if err != nil || len(found.Sandboxes) == 0 || found.Sandboxes[0].Name != typed {
-		return typed
+	if err != nil {
+		return "", err
 	}
-	return found.Sandboxes[0].SandboxID
+	if len(found.Sandboxes) == 0 || found.Sandboxes[0].Name != typed {
+		return typed, nil
+	}
+	return found.Sandboxes[0].SandboxID, nil
 }
 
 // sandboxesOf reads, at once, the sandbox each of typed names (idOf), in their order, for a
@@ -42,7 +45,10 @@ func sandboxesOf(ctx context.Context, c *sandboxes.Client, typed []string) ([]*s
 	calls := make([]func() error, len(typed))
 	for i, words := range typed {
 		calls[i] = func() error {
-			id := idOf(ctx, c, words)
+			id, err := idOf(ctx, c, words)
+			if err != nil {
+				return err
+			}
 			sandbox, err := c.GetSandbox(ctx, &sandboxes.GetSandboxRequest{SandboxID: id})
 			if err != nil {
 				return about(words, err)

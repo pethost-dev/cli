@@ -54,7 +54,9 @@ exits 0 when the turn is done, and 1 when it failed or was stopped. Ctrl-C stops
 		if err != nil {
 			return err
 		}
-		request.SandboxID = idOf(cmd.Context(), c, args[0])
+		if request.SandboxID, err = idOf(cmd.Context(), c, args[0]); err != nil {
+			return err
+		}
 		t := &turning{a: a, c: c, id: request.SandboxID}
 		if a.JSON {
 			return t.forJSON(cmd.Context(), request)

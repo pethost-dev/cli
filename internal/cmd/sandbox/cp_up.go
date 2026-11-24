@@ -32,7 +32,9 @@ func copyIn(ctx context.Context, a *app.App, local string, to side) error {
 	if err != nil {
 		return err
 	}
-	to.sandbox = idOf(ctx, c, to.sandbox)
+	if to.sandbox, err = idOf(ctx, c, to.sandbox); err != nil {
+		return err
+	}
 	if local == streamed {
 		return copyStdinIn(ctx, a, c, to)
 	}

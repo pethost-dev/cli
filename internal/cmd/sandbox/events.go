@@ -59,7 +59,10 @@ func events(ctx context.Context, a *app.App, id string, wanted []sandboxes.Sandb
 	if err != nil {
 		return err
 	}
-	id = idOf(ctx, c, id)
+	id, err = idOf(ctx, c, id)
+	if err != nil {
+		return err
+	}
 	last, err := c.ListSandboxEvents(ctx, &sandboxes.ListSandboxEventsRequest{SandboxID: id, Kinds: wanted, NewestFirst: true, Limit: lines})
 	if err != nil {
 		return about(id, err)
