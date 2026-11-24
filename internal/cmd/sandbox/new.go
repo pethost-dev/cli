@@ -2,7 +2,6 @@ package sandbox
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/pethost-dev/sdk/go/sandboxes"
@@ -31,19 +30,17 @@ its whole environment, and a timer its lifecycle, whose other timers take their 
   pethost sandbox new --template my-app --public-port 3000
   pethost sandbox new --allow pypi.org --allow files.pythonhosted.org
   pethost sandbox new --env ANTHROPIC_API_KEY=secret:anthropic
-  pethost sandbox new --pause-after 1m --stop-after 10m --delete-after 24h
-  pethost sandbox new --mount vol_8f2k3j:/data`,
+  pethost sandbox new --pause-after 1m --stop-after 10m --delete-after 24h`,
 		Args: cobra.NoArgs,
 	}
 	settings := addSettingsFlags(cmd.Flags())
 	var template, name string
-	var labels, mounts []string
+	var labels []string
 	var ports []uint
 	cmd.Flags().StringVar(&template, "template", "", `the template, "name" or "name@version" (default "base")`)
 	cmd.Flags().StringVar(&name, "name", "", "a name to call it by, unique in the workspace: a-z, 0-9 and -")
 	cmd.Flags().StringArrayVar(&labels, "label", nil, "a label to find it by, key=value (again for more)")
 	cmd.Flags().UintSliceVar(&ports, "public-port", nil, "a port anyone may open at its own address (again for more)")
-	cmd.Flags().StringArrayVar(&mounts, "mount", nil, "a volume to mount, VOLUME_ID:/path, or VOLUME_ID:/path:ro read-only (again for more)")
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		request := &sandboxes.CreateSandboxRequest{Template: template, Name: name, Labels: labelsOf(labels), Settings: &sandboxes.SandboxSettings{}}
@@ -52,13 +49,6 @@ its whole environment, and a timer its lifecycle, whose other timers take their 
 		}
 		if cmd.Flags().Changed("public-port") {
 			request.Settings.Ingress = ingressOf(ports)
-		}
-		for _, typed := range mounts {
-			mount, err := mountOf(typed)
-			if err != nil {
-				return err
-			}
-			request.Mounts = append(request.Mounts, mount)
 		}
 		return create(cmd, a, request)
 	}
@@ -109,14 +99,4 @@ func publicPorts(sandbox *sandboxes.Sandbox) []sandboxes.PublicPort {
 		return nil
 	}
 	return sandbox.Settings.Ingress.PublicPorts
-}
-
-// mountOf is a --mount: "vol_8f2k3j:/data", or "vol_8f2k3j:/data:ro".
-func mountOf(typed string) (sandboxes.Mount, error) {
-	volume, rest, ok := strings.Cut(typed, ":")
-	path, mode, _ := strings.Cut(rest, ":")
-	if !ok || volume == "" || path == "" || (mode != "" && mode != "ro" && mode != "rw") {
-		return sandboxes.Mount{}, wrongValue("--mount takes VOLUME_ID:/path or VOLUME_ID:/path:ro, and %q was given.", typed)
-	}
-	return sandboxes.Mount{VolumeID: volume, Path: path, ReadOnly: mode == "ro"}, nil
 }

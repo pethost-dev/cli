@@ -65,9 +65,6 @@ func printSandbox(a *app.App, sandbox *sandboxes.Sandbox) {
 	for _, port := range publicPorts(sandbox) {
 		table.Row(fmt.Sprintf("port %d", port.Port), ui.Clean(port.URL))
 	}
-	for _, mount := range sandbox.Mounts {
-		table.Row("volume", mountWords(mount))
-	}
 	if sandbox.SSHCommand != "" {
 		table.Row("ssh", ui.Clean(sandbox.SSHCommand))
 	}
@@ -93,15 +90,6 @@ func stateLine(out *ui.Stream, sandbox *sandboxes.Sandbox) string {
 		line += fmt.Sprintf(", its disk fetched: %s of %s", ui.Size(uint64(restore.FetchedBytes)), ui.Size(uint64(restore.TotalBytes)))
 	}
 	return line
-}
-
-// mountWords is a mounted volume: "vol_8f2k3j at /data, read-only".
-func mountWords(mount sandboxes.Mount) string {
-	words := ui.Clean(mount.VolumeID) + " at " + ui.Clean(mount.Path)
-	if mount.ReadOnly {
-		words += ", read-only"
-	}
-	return words
 }
 
 // usageWords is what a sandbox has used, and what it was charged in its workspace's currency,

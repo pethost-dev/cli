@@ -16,9 +16,9 @@ func workspaceCommand(a *app.App) *cobra.Command {
 	return &cobra.Command{
 		Use:   "workspace",
 		Short: "The workspace of sandboxes: its limits, what it uses, its billing, keys and secrets",
-		Long: `Shows the workspace of sandboxes: what its plan allows and what its sandboxes, volumes
-and templates take of it, what is left of the usage the plan includes and the balance,
-each size with its price, and the names of its SSH keys and secrets.`,
+		Long: `Shows the workspace of sandboxes: what its plan allows and what its sandboxes and
+templates take of it, what is left of the usage the plan includes and the balance, each
+size with its price, and the names of its SSH keys and secrets.`,
 		Example: `  pethost sandbox workspace
   pethost sandbox workspace -w research --json`,
 		Args: cobra.NoArgs,
@@ -46,7 +46,6 @@ func printWorkspace(a *app.App, workspace *sandboxes.Workspace) {
 	table.Row("workspace", out.Bold(ui.Clean(workspace.Name))+" ("+ui.Clean(workspace.WorkspaceID)+")")
 	if limits := workspace.Limits; limits != nil {
 		table.Row("vCPUs", fmt.Sprintf("%d of %d, sizes up to %s", workspace.VcpusUsed, limits.Vcpus, word(limits.LargestSize)))
-		table.Row("volumes", fmt.Sprintf("%d of %d GiB", workspace.VolumeGibUsed, limits.VolumeGib))
 		table.Row("templates", fmt.Sprintf("%s of %d GiB, %d versions a name", ui.Size(uint64(workspace.TemplateBytes)), limits.TemplateGib, limits.TemplateVersions))
 	}
 	if billing := workspace.Billing; billing != nil {

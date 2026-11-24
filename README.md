@@ -487,8 +487,8 @@ $ pethost sandbox agent w6r0v0csyih1dfs7 'Add a test for hello.py'
 ```
 
 `pethost help sandbox` lists the rest: `set` changes a sandbox's size, lifecycle, egress or
-environment, `template save` keeps its files to start others from, and `volume`, `secret`,
-`events` and `workspace` do what they say.
+environment, `template save` keeps its files to start others from, and `secret`, `events`
+and `workspace` do what they say.
 
 ## How do I use it with an AI agent?
 

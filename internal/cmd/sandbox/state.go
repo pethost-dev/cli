@@ -68,9 +68,8 @@ func rmCommand(a *app.App) *cobra.Command {
 		Use:     "rm <id>...",
 		Aliases: []string{"delete"},
 		Short:   "Delete sandboxes, their memory and disk for good",
-		Long: `Deletes sandboxes: their memory and disk are gone for good; the volumes they mounted
-stay. It asks first, naming each sandbox by its name and id, and needs --yes where nobody
-can be asked.`,
+		Long: `Deletes sandboxes: their memory and disk are gone for good. It asks first, naming each
+sandbox by its name and id, and needs --yes where nobody can be asked.`,
 		Example: `  pethost sandbox rm k7f3q2xy0a1b2c3d
   pethost sandbox rm k7f3q2xy0a1b2c3d k9a8b7c6d5e4f3g2 --yes`,
 	}, remove)
