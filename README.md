@@ -634,7 +634,7 @@ projects, logs and requests.
   it, never through our panel.
 
 **Pricing.** Starter is €9.99 a month for 2 vCPU, 3 GB of memory and 30 GB of SSD. Grow is
-€17.99 for 4 vCPU, 6 GB and 60 GB. Scale is €59 for 8 vCPU, 30 GB and 200 GB. Prices are without
+€17.99 for 4 vCPU, 6 GB and 60 GB. Scale is €59.99 for 8 vCPU, 30 GB and 200 GB. Prices are without
 VAT. Whatever the plan, you can try anything: as many projects, containers and databases as
 fit, nothing metered, and nothing billed on top. The App Platform has no free tier.
 [See the plans](https://pethost.dev/#pricing).
