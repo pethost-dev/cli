@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"slices"
 
-	pethost "github.com/pethost-dev/sdk/go"
 	"github.com/spf13/cobra"
 
 	"github.com/pethost-dev/cli/internal/app"
@@ -67,56 +66,31 @@ type envPush struct {
 	noQueue bool
 	// The file sent, as the person named it, and what it holds.
 	path  string
-	local []byte
+	local string
 	// The project's /.env the person said yes to replacing: a later read that differs is asked
 	// about again.
 	agreed *string
 }
 
 func (p *envPush) run(ctx context.Context) error {
-	client := p.a.Client()
 	local, err := os.ReadFile(p.path)
 	if err != nil {
 		return p.unreadable(err)
 	}
-	p.local = local
+	p.local = string(local)
+	return editEnv(ctx, p.a, p.project, p.noQueue, p.edit)
+}
 
-	var done *operation.Result
-	err = againIfChanged(func() error {
-		env, err := readEnv(ctx, client, p.project.ID)
-		if err != nil {
-			return err
-		}
-		if env.exists && env.text == string(p.local) {
-			return nil
-		}
-		if err := p.confirm(env); err != nil {
-			return err
-		}
-
-		done, err = deploy(ctx, p.a, p.project, p.noQueue, &pethost.DeployProjectRequest{
-			BaseDeployID: env.deployID,
-			Files:        []pethost.FileChange{{Path: envPath, Change: pethost.FileChangeData(p.local)}},
-		}, envWords)
-		return err
-	})
-	if err != nil {
-		sayEnvStays(p.a, done)
-		return err
+// edit makes the project's /.env a copy of the file, once the person said yes to what that
+// replaces; nothing is deployed when it is one already.
+func (p *envPush) edit(env *projectEnv) (*string, string, error) {
+	if env.exists && env.text == p.local {
+		return nil, "The " + envPath + " of " + ui.Clean(p.project.ID) + " is " + p.name() + " already: nothing changed.", nil
 	}
-	if done == nil {
-		p.a.UI.Info("The %s of %s is %s already: nothing changed.", envPath, ui.Clean(p.project.ID), p.name())
-		if p.a.JSON {
-			return printProject(ctx, p.a, client, p.project.ID)
-		}
-		return nil
+	if err := p.confirm(env); err != nil {
+		return nil, "", err
 	}
-
-	p.a.UI.Done("%s is a copy of %s now. Deployed in %s.", envPath, p.name(), done.Took())
-	if line := nobodyReadsLine(done.Project); line != "" && len(dotenv.Names(string(p.local))) > 0 {
-		p.a.UI.Info("  %s", line)
-	}
-	return done.Said(p.a)
+	return &p.local, envPath + " is a copy of " + p.name() + " now.", nil
 }
 
 // name is the file as a sentence names it: as typed, and the .env found beside a .pethost as
@@ -154,7 +128,7 @@ func (p *envPush) confirm(env *projectEnv) error {
 
 // question says what replacing the project's /.env does to its variables, then asks.
 func (p *envPush) question(env *projectEnv) string {
-	id, local := ui.Clean(p.project.ID), string(p.local)
+	id, local := ui.Clean(p.project.ID), p.local
 	names := dotenv.Names(local)
 	if !env.exists {
 		return id + " has no " + envPath + " yet. Send " + p.name() + ", which sets " + cmp.Or(listed(names), "nothing") + "?"

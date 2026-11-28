@@ -115,7 +115,7 @@ func rewriteMoved(ctx context.Context, a *app.App, file *File, moved *pethost.Pr
 		}
 
 		there, ok := FileFrom(file.Dir, machine, file.ProjectID)
-		if ok && file.UID != "" && there.UID != "" && there.UID != file.UID {
+		if ok && file.otherUID(there.UID) {
 			return nil, fail.Failed("This folder's %s was written for an earlier %s: the one that moved is a different project.", FileName, ui.Clean(file.ProjectID)).
 				WithLead("To put this folder online again, remove "+FileName+" and run:", "pethost deploy")
 		}

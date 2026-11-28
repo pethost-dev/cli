@@ -112,15 +112,7 @@ func reachedTheAccount(api *pethost.Error) bool {
 // machineOf asks for the machine with a token of its own, not the run's: the run may go on
 // under PETHOST_TOKEN while the person signs this computer in.
 func machineOf(ctx context.Context, a *app.App, panelURL, token string) (*pethost.GetMachineResponse, error) {
-	started := time.Now()
-	answer, err := pethost.NewClient(pethost.Config{Token: token, BaseURL: panelURL}).GetMachine(ctx, nil)
-
-	outcome := "answered"
-	if api, ok := errors.AsType[*pethost.Error](err); ok {
-		outcome = api.Code.String()
-	}
-	a.Debugf("GetMachine  %s  %s", time.Since(started).Round(time.Millisecond), outcome)
-	return answer, err
+	return pethost.NewClient(pethost.Config{Token: token, BaseURL: panelURL, HTTPClient: a.HTTPClient()}).GetMachine(ctx, nil)
 }
 
 // store keeps a sign-in for the next runs, and for the rest of this one.

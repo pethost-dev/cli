@@ -92,11 +92,18 @@ func newestDeploy(project *pethost.Project) (pethost.Operation, bool) {
 	return pethost.Operation{}, false
 }
 
-// sentNoFiles says whether a deploy succeeded with no archive, no commit and no changed path:
-// what it deployed were files the project already had.
+// sentNoFiles says whether a deploy succeeded with files it did not bring and no changed path:
+// the machine names an earlier deploy as the one whose files it deployed (files_operation_id),
+// as after an address, a name, a password or a rollback. A deploy that changed /.env has a
+// changed path, and is shown. A record from before the machine named it is judged by what it
+// sent: no archive and no commit.
 func sentNoFiles(deploy pethost.Operation) bool {
+	tookFiles := deploy.FilesOperationID != deploy.OperationID
+	if deploy.FilesOperationID == "" {
+		tookFiles = deploy.ArchiveName == "" && deploy.GithubCommit == nil
+	}
 	return deploy.Kind == pethost.OperationKindDeploy && deploy.Status == pethost.OperationStatusSucceeded &&
-		deploy.ArchiveName == "" && deploy.GithubCommit == nil && deploy.ChangedPathCount == 0
+		tookFiles && deploy.ChangedPathCount == 0
 }
 
 // print writes the log as it is now, page by page, then how the deploy ended or that it runs.

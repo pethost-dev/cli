@@ -87,6 +87,26 @@ func Watch(ctx context.Context, a *app.App, project target.Project, started *pet
 	}, nil
 }
 
+// Finish takes an operation from the call that started it, whose answer call holds, to its end.
+// A change the machine applies at once has ended in that answer; any other is watched. One that
+// did not succeed is reported in the machine's words and is the error returned, beside its result.
+// Of one that ended well the command then says in its own words what is different now.
+func Finish(ctx context.Context, a *app.App, project target.Project, call *Result, words Words) (*Result, error) {
+	done := call
+	if call.Operation == nil || call.Operation.FinishTime.IsZero() {
+		watched, err := Watch(ctx, a, project, call.Operation, words.Doing)
+		if err != nil {
+			return nil, err
+		}
+		done = watched
+	}
+
+	if done.Operation.Status != pethost.OperationStatusSucceeded {
+		return done, a.WithAnswer(done.Answer, done.Report(ctx, a, project, words))
+	}
+	return done, nil
+}
+
 // errFinished ends the follow of a log whose stream has said its last word.
 var errFinished = errors.New("the operation finished")
 

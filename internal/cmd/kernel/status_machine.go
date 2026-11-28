@@ -10,6 +10,7 @@ import (
 
 	"github.com/pethost-dev/cli/internal/app"
 	"github.com/pethost-dev/cli/internal/say"
+	"github.com/pethost-dev/cli/internal/target"
 	"github.com/pethost-dev/cli/internal/ui"
 )
 
@@ -41,7 +42,7 @@ func printProjects(a *app.App, projects []pethost.ProjectSummary) {
 	table.Flush()
 
 	if troubled := firstWithProblems(projects); troubled != "" {
-		a.UI.Next("pethost why -p " + app.ShellWord(troubled))
+		a.UI.Next("pethost why" + target.Project{ID: troubled, Workspace: target.FlagWorkspace(a)}.Flag())
 	}
 }
 
@@ -68,7 +69,7 @@ func sayDeleted(a *app.App, deleted []pethost.DeletedProject) {
 		return
 	}
 	a.UI.Info("Deleted, with snapshots kept: %s. To bring one back:  %s",
-		strings.Join(names, ", "), a.UI.Err.Bold("pethost backup -p "+app.ShellWord(back)))
+		strings.Join(names, ", "), a.UI.Err.Bold("pethost backup"+target.Project{ID: back, Workspace: target.FlagWorkspace(a)}.Flag()))
 }
 
 // printMachineLine writes the machine in one line, after the workspace it serves: "Personal

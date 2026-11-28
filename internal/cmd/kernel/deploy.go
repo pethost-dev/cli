@@ -56,7 +56,6 @@ type deploy struct {
 	private bool
 	noQueue *bool
 
-	client *pethost.Client
 	// The machine and its projects, as GetMachine answered.
 	machine *pethost.GetMachineResponse
 	// The folder that is deployed, and its .pethost if it has one.
@@ -184,11 +183,7 @@ func (d *deploy) signIn(ctx context.Context) error {
 	}
 
 	d.a.SayToken()
-	if err := d.a.NeedSignIn(); err != nil {
-		return err
-	}
-	d.client = d.a.Client()
-	return nil
+	return d.a.NeedSignIn()
 }
 
 // chooseFolder settles which folder is deployed: the one named; else, when nothing names the

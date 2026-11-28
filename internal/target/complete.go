@@ -91,13 +91,11 @@ func MachineNow(ctx context.Context, a *app.App) *pethost.GetMachineResponse {
 	ctx, cancel := context.WithTimeout(ctx, completionWait)
 	defer cancel()
 
-	// A Tab runs no command, so nothing has settled the workspace: the one given, else the
-	// folder's.
-	workspace, _ := a.GivenWorkspace()
-	if project, named, _ := Named(a); workspace == "" && named && project.Source == FromFile {
-		workspace = project.File.WorkspaceID
-	}
-	machine, err := a.Client().GetMachine(ctx, &pethost.GetMachineRequest{Workspace: workspace})
+	// The root's hook ran for the Tab before the completed command's flags were read: its steps
+	// are taken again now that -w is.
+	a.Start()
+	UseFolderWorkspace(a)
+	machine, err := a.Client().GetMachine(ctx, nil)
 	if err != nil {
 		return nil
 	}

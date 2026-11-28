@@ -19,17 +19,7 @@ func (d *deploy) useFolderWorkspace(ctx context.Context) error {
 	if d.file == nil || d.namedOutside() {
 		return nil
 	}
-	if err := target.UseFileWorkspace(ctx, d.a, d.file); err != nil {
-		return err
-	}
-	d.client = d.a.Client()
-	return nil
-}
-
-// useWorkspace sends the deploy's calls from now on to a workspace; empty = to none named.
-func (d *deploy) useWorkspace(workspace string) {
-	d.a.UseWorkspace(workspace)
-	d.client = d.a.Client()
+	return target.UseFileWorkspace(ctx, d.a, d.file)
 }
 
 // rememberFolder writes the folder's .pethost once the machine has taken the deploy: from then
@@ -43,13 +33,7 @@ func (d *deploy) rememberFolder() error {
 		return nil
 	}
 
-	file := target.File{Dir: d.dir, ProjectID: d.project.ID}
-	if d.machine.Machine != nil {
-		file.AppsDomain = d.machine.Machine.AppsDomain
-	}
-	if d.machine.Workspace != nil {
-		file.WorkspaceID = d.machine.Workspace.WorkspaceID
-	}
+	file := target.NewFile(d.dir, d.machine, d.project.ID)
 	if err := target.WriteFile(file); err != nil {
 		return fail.Failed("The deploy runs, but %s could not be written here: %s", target.FileName, err).
 			WithLead("Follow it:", "pethost logs --deploy -f"+d.project.Flag())

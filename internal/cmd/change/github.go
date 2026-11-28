@@ -78,7 +78,7 @@ func connectGithub(ctx context.Context, a *app.App, noQueue bool, source pethost
 	}
 
 	call := &operation.Result{Operation: answer.Operation, Project: answer.Project, LogEnd: answer.Log, Answer: answer}
-	done, err := finish(ctx, a, project, call, operation.Words{Doing: "Deploying its newest commit…", Failed: "Deploy failed"})
+	done, err := operation.Finish(ctx, a, project, call, operation.Words{Doing: "Deploying its newest commit…", Failed: "Deploy failed"})
 	if err != nil {
 		return err
 	}
@@ -129,22 +129,14 @@ func showGithub(ctx context.Context, a *app.App) error {
 	if err != nil {
 		return err
 	}
-	client := a.Client()
 
 	var machine *pethost.GetMachineResponse
 	var answer *pethost.GetProjectResponse
-	err = app.Together(
-		func() (err error) {
-			machine, err = client.GetMachine(ctx, nil)
-			return err
-		},
-		func() (err error) {
-			if named {
-				answer, err = client.GetProject(ctx, &pethost.GetProjectRequest{ProjectID: project.ID})
-			}
-			return err
-		},
-	)
+	if named {
+		machine, answer, err = a.MachineAndProject(ctx, project.ID)
+	} else {
+		machine, err = a.Client().GetMachine(ctx, nil)
+	}
 	if err != nil {
 		return err
 	}

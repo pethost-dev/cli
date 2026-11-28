@@ -158,10 +158,10 @@ func (p *progress) done(from, to string) {
 	p.a.UI.Done("Copied %s to %s · %s in %s", ui.Clean(from), ui.Clean(to), ui.Size(uint64(p.moved.Load())), ui.Duration(time.Since(p.started)))
 }
 
-// kindOf says whether a path in a sandbox is a directory. ListFiles lists a file's path as that
-// file alone, and a directory's as what is in it, each under its own path: a directory that holds
-// one file of its own name, asked for by a relative path, reads as that file, and its copy is
-// then refused by the server.
+// kindOf says whether a path in a sandbox is a directory, for a large file copied in. ListFiles
+// lists a file's path as that file alone, and a directory's as what is in it, each under its own
+// path: a directory that holds one file of its own name, asked for by a relative path, reads as
+// that file, and the upload to it is then refused by the server.
 func kindOf(ctx context.Context, c *sandboxes.Client, id, asked string) (sandboxes.FileKind, error) {
 	list, err := c.ListFiles(ctx, &sandboxes.ListFilesRequest{SandboxID: id, Path: asked})
 	if err != nil {

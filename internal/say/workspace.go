@@ -1,6 +1,7 @@
 package say
 
 import (
+	"slices"
 	"strings"
 
 	pethost "github.com/pethost-dev/sdk/go"
@@ -46,14 +47,19 @@ func WorkspaceProjects(workspace *pethost.Workspace) string {
 }
 
 // Workspace is a workspace in one line, as a picker shows it beside its name: "k7f3q2xy · 2
-// CPU, 4 GB memory, 40 GB disk · 1.1 GB memory, 31 GB disk free · Europe · 4 projects".
-func Workspace(workspace *pethost.Workspace) string {
+// CPU, 4 GB memory, 40 GB disk · 1.1 GB memory, 31 GB disk free · Europe · 4 projects", and
+// "· has the project" when it is one of the workspaces holding the project a call named
+// (WorkspaceChoice.HoldingProject).
+func Workspace(workspace *pethost.Workspace, holding []string) string {
 	parts := []string{ui.Clean(workspace.WorkspaceID), WorkspaceSize(workspace), WorkspaceFree(workspace)}
 	if workspace.Location != "" {
 		parts = append(parts, ui.Clean(workspace.Location))
 	}
 	if workspace.ProjectCount != nil {
 		parts = append(parts, WorkspaceProjects(workspace))
+	}
+	if slices.Contains(holding, workspace.WorkspaceID) {
+		parts = append(parts, "has the project")
 	}
 	return strings.Join(parts, " · ")
 }

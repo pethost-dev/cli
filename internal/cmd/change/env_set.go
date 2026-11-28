@@ -3,6 +3,7 @@ package change
 import (
 	"context"
 	"strings"
+	"unicode/utf8"
 
 	pethost "github.com/pethost-dev/sdk/go"
 	"github.com/spf13/cobra"
@@ -17,7 +18,8 @@ import (
 
 // env set and env rm: an edit of the project's /.env, deployed. The file is read, the one
 // statement is changed in its text, and the whole text is written back on the deploy it was
-// read from: if the project was deployed in between, it is read and edited once more.
+// read from: if the project was deployed in between, it is read and edited once more. env push
+// replaces the file by the same loop (editEnv).
 
 // envSetCommand is `pethost env set KEY[=VALUE]...`.
 func envSetCommand(a *app.App) *cobra.Command {
@@ -49,9 +51,9 @@ quotes it in the file where the file needs it.`,
 		if err := askValues(a, variables, project); err != nil {
 			return err
 		}
-		return editEnv(cmd.Context(), a, project, *noQueue, func(text string) (string, string) {
+		return editEnv(cmd.Context(), a, project, *noQueue, textEdit(func(text string) (*string, string) {
 			return setVariables(text, variables)
-		})
+		}))
 	}
 	return cmd
 }
@@ -71,9 +73,9 @@ func envRmCommand(a *app.App) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		return editEnv(cmd.Context(), a, project, *noQueue, func(text string) (string, string) {
+		return editEnv(cmd.Context(), a, project, *noQueue, textEdit(func(text string) (*string, string) {
 			return removeVariables(text, args)
-		})
+		}))
 	}
 	return cmd
 }
@@ -140,8 +142,24 @@ func hiddenValue(a *app.App, name string, project target.Project) (string, error
 		"pethost env set "+word(name)+project.Flag()+" < file", empty)
 }
 
-// setVariables is the text with the variables set, and what that makes of it in words.
-func setVariables(text string, variables []variable) (string, string) {
+// textEdit is env set's or env rm's edit of the project's /.env, which writes back the text it
+// read with one statement changed. A file that is not UTF-8 is refused: ReadPath gives it as text
+// with U+FFFD for each byte it cannot read, and that text written back would change values the
+// edit did not touch.
+func textEdit(edit func(text string) (next *string, says string)) func(env *projectEnv) (*string, string, error) {
+	return func(env *projectEnv) (*string, string, error) {
+		if strings.ContainsRune(env.text, utf8.RuneError) {
+			return nil, "", fail.Failed("The project's %s is not UTF-8 text: it cannot be edited here. "+
+				"pethost env push replaces it whole.", envPath)
+		}
+		next, says := edit(env.text)
+		return next, says, nil
+	}
+}
+
+// setVariables is the text with the variables set, nil when that changes nothing, and what that
+// makes of it in words.
+func setVariables(text string, variables []variable) (*string, string) {
 	names := make([]string, len(variables))
 	changed := text
 	for i, v := range variables {
@@ -150,13 +168,14 @@ func setVariables(text string, variables []variable) (string, string) {
 	}
 
 	if changed == text {
-		return text, envPath + " already sets " + listed(names) + " this way: nothing changed."
+		return nil, envPath + " already sets " + listed(names) + " this way: nothing changed."
 	}
-	return changed, envPath + " has " + listed(names) + " now."
+	return &changed, envPath + " has " + listed(names) + " now."
 }
 
-// removeVariables is the text without the variables, and what that makes of it in words.
-func removeVariables(text string, names []string) (string, string) {
+// removeVariables is the text without the variables, nil when it has none of them, and what
+// that makes of it in words.
+func removeVariables(text string, names []string) (*string, string) {
 	var gone, absent []string
 	changed := text
 	for _, name := range names {
@@ -169,13 +188,13 @@ func removeVariables(text string, names []string) (string, string) {
 	}
 
 	if len(gone) == 0 {
-		return text, envPath + " has no " + listed(absent) + ": nothing changed."
+		return nil, envPath + " has no " + listed(absent) + ": nothing changed."
 	}
 	says := envPath + " no longer has " + listed(gone) + "."
 	if len(absent) > 0 {
 		says += " It had no " + listed(absent) + "."
 	}
-	return changed, says
+	return &changed, says
 }
 
 // sayEnvStays says, under a deploy that failed after it made the files the project's, that the
@@ -188,12 +207,14 @@ func sayEnvStays(a *app.App, failed *operation.Result) {
 
 var envWords = operation.Words{Doing: "Deploying…", Failed: "Deploy failed"}
 
-// editEnv reads the project's /.env, edits its text and deploys it. edit returns the text as
-// it is to be and what to say of it; the same text back means there is nothing to deploy.
-func editEnv(ctx context.Context, a *app.App, project target.Project, noQueue bool, edit func(text string) (changed, says string)) error {
+// editEnv reads the project's /.env, has edit decide what it is to be, and deploys that. edit
+// returns the file as it is to be, nil when there is nothing to deploy, and what to say of it
+// either way; its error, such as a no to a question, ends the command.
+func editEnv(ctx context.Context, a *app.App, project target.Project, noQueue bool, edit func(env *projectEnv) (next *string, says string, err error)) error {
 	client := a.Client()
 
 	var done *operation.Result
+	var next *string
 	var says string
 	err := againIfChanged(func() error {
 		env, err := readEnv(ctx, client, project.ID)
@@ -201,14 +222,13 @@ func editEnv(ctx context.Context, a *app.App, project target.Project, noQueue bo
 			return err
 		}
 
-		var text string
-		text, says = edit(env.text)
-		if text == env.text {
-			return nil
+		next, says, err = edit(env)
+		if err != nil || next == nil {
+			return err
 		}
 		done, err = deploy(ctx, a, project, noQueue, &pethost.DeployProjectRequest{
 			BaseDeployID: env.deployID,
-			Files:        []pethost.FileChange{{Path: envPath, Change: pethost.FileChangeText(text)}},
+			Files:        []pethost.FileChange{{Path: envPath, Change: pethost.FileChangeData([]byte(*next))}},
 		}, envWords)
 		return err
 	})
@@ -225,7 +245,7 @@ func editEnv(ctx context.Context, a *app.App, project target.Project, noQueue bo
 	}
 
 	a.UI.Done("%s Deployed in %s.", says, done.Took())
-	if line := nobodyReadsLine(done.Project); line != "" {
+	if line := nobodyReadsLine(done.Project); line != "" && len(dotenv.Names(*next)) > 0 {
 		a.UI.Info("  %s", line)
 	}
 	return done.Said(a)

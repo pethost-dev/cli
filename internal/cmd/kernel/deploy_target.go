@@ -129,7 +129,7 @@ func (d *deploy) nameNew(suggested string) error {
 			return nil
 		}
 
-		yes, err := d.a.UI.Confirm(ui.Clean(id)+" is already "+d.where()+". Is this folder its new version?", d.a.CommandLine("-p", id))
+		yes, err := d.a.UI.Confirm(ui.Clean(id)+" is already "+target.Where(d.machine)+". Is this folder its new version?", d.a.CommandLine("-p", id))
 		if err != nil {
 			return err
 		}
@@ -178,15 +178,6 @@ func (d *deploy) addressHint(id string) string {
 		return ""
 	}
 	return "it will live at https://" + id + "." + domain
-}
-
-// where is where the deploy's projects are, in a sentence: "in Personal", or "on your machine"
-// where the answer names no workspace.
-func (d *deploy) where() string {
-	if d.machine.Workspace == nil || d.machine.Workspace.Name == "" {
-		return "on your machine"
-	}
-	return "in " + ui.Clean(d.machine.Workspace.Name)
 }
 
 // appsDomain is the account's domain, cleaned to be printed; empty without a machine.

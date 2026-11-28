@@ -90,23 +90,29 @@ func WriteFile(file File) error {
 	return os.WriteFile(filepath.Join(file.Dir, FileName), append(data, '\n'), 0o644)
 }
 
-// FileFrom is the .pethost of a project for the folder dir, from GetMachine's answer for the
-// workspace that holds it: the project's ids, the workspace's and its domain. false = the
-// machine has no project of that id.
-func FileFrom(dir string, machine *pethost.GetMachineResponse, projectID string) (File, bool) {
+// NewFile is the .pethost of the project projectID for the folder dir, from GetMachine's answer
+// for the workspace that holds it: the project's id, the workspace's and its domain. The
+// project's uid is the machine's to tell (FileFrom).
+func NewFile(dir string, machine *pethost.GetMachineResponse, projectID string) File {
 	file := File{Dir: dir, ProjectID: projectID}
-	project := file.summaryOn(machine)
-	if project == nil {
-		return File{}, false
-	}
-
-	file.UID = project.UID
 	if machine.Machine != nil {
 		file.AppsDomain = machine.Machine.AppsDomain
 	}
 	if machine.Workspace != nil {
 		file.WorkspaceID = machine.Workspace.WorkspaceID
 	}
+	return file
+}
+
+// FileFrom is NewFile with the project's uid, as the machine has the project. false = the
+// machine has no project of that id.
+func FileFrom(dir string, machine *pethost.GetMachineResponse, projectID string) (File, bool) {
+	file := NewFile(dir, machine, projectID)
+	project := file.summaryOn(machine)
+	if project == nil {
+		return File{}, false
+	}
+	file.UID = project.UID
 	return file, true
 }
 
@@ -135,7 +141,7 @@ func (f *File) On(machine *pethost.GetMachineResponse) State {
 	same := f.sameWorkspace(machine)
 
 	switch {
-	case same && project != nil && f.UID != "" && project.UID != "" && project.UID != f.UID:
+	case same && project != nil && f.otherUID(project.UID):
 		return Replaced
 	case same && project != nil:
 		return Current
@@ -158,6 +164,12 @@ func (f *File) summaryOn(machine *pethost.GetMachineResponse) *pethost.ProjectSu
 	return &machine.Projects[at]
 }
 
+// otherUID says whether a project of the file's id is a different one than the file was written
+// for, as far as both know its uid.
+func (f *File) otherUID(uid string) bool {
+	return f.UID != "" && uid != "" && uid != f.UID
+}
+
 // sameWorkspace says whether the machine is the one the file was written for: of the workspace
 // it names, or, in a file that names none, under its domain.
 func (f *File) sameWorkspace(machine *pethost.GetMachineResponse) bool {
@@ -176,18 +188,18 @@ func (f *File) Says(state State, machine *pethost.GetMachineResponse) string {
 
 	switch state {
 	case Gone:
-		return fmt.Sprintf("This folder's %s names %s, which is not %s any more.", FileName, id, inWorkspace(machine))
+		return fmt.Sprintf("This folder's %s names %s, which is not %s any more.", FileName, id, Where(machine))
 	case Replaced:
-		return fmt.Sprintf("This folder's %s was written for an earlier %s: a different project has that id %s now.", FileName, id, inWorkspace(machine))
+		return fmt.Sprintf("This folder's %s was written for an earlier %s: a different project has that id %s now.", FileName, id, Where(machine))
 	case Namesake:
 		return fmt.Sprintf("This folder's %s was written for %s on %s. Your machine, %s, has a %s of its own.", FileName, id, was, now, id)
 	}
 	return fmt.Sprintf("This folder's %s was written for %s on %s, and your machine, %s, has no such project.", FileName, id, was, now)
 }
 
-// inWorkspace is where a machine's projects are, in a sentence: "in Personal", or "on your
+// Where is where a machine's projects are, in a sentence: "in Personal", or "on your
 // machine" when the answer names no workspace.
-func inWorkspace(machine *pethost.GetMachineResponse) string {
+func Where(machine *pethost.GetMachineResponse) string {
 	if machine.Workspace == nil || machine.Workspace.Name == "" {
 		return "on your machine"
 	}
@@ -212,7 +224,7 @@ func SameProject(a *app.App, project Project, got *pethost.Project, machine *pet
 		_ = writeWorkspace(file, machine) // A read carries on without it, as completeOldFile's.
 		return nil
 	}
-	if file.UID == "" || got.UID == "" || got.UID == file.UID {
+	if !file.otherUID(got.UID) {
 		return nil
 	}
 	return file.replaced(a, machine)

@@ -88,19 +88,27 @@ func (m *move) say(machine *pethost.GetMachineResponse, done *operation.Result, 
 	}
 }
 
-// sayChanges says the moved project's addresses under the destination's domain, the person's
-// own domains, which answer there once their CNAME points at its machine, and where SSH logs in.
+// sayChanges says the moved project's addresses under the destination's domain, why a name of
+// the panel's that is not under it answers nobody (one left under the source's domain), the
+// person's own domains, which answer there once their CNAME points at its machine, and where
+// SSH logs in.
 func sayChanges(screen *ui.Screen, project *pethost.Project, to *pethost.Workspace) {
-	var ours, own []string
+	var ours, left, own []string
 	for _, host := range project.Hosts {
-		if to.AppsDomain != "" && strings.HasSuffix(host.Host, "."+to.AppsDomain) {
+		switch {
+		case underDomain(host.Host, to.AppsDomain):
 			ours = append(ours, ui.Clean(cmp.Or(host.URL, "https://"+host.Host)))
-		} else {
+		case host.UnavailableMessage != "":
+			left = append(left, ui.Clean(host.UnavailableMessage))
+		default:
 			own = append(own, ui.Clean(host.Host))
 		}
 	}
 	if len(ours) > 0 {
 		screen.Info("  Its new addresses: %s", strings.Join(ours, ", "))
+	}
+	for _, reason := range left {
+		screen.Info("  %s", reason)
 	}
 	if to.Hostname == "" {
 		return
@@ -109,6 +117,12 @@ func sayChanges(screen *ui.Screen, project *pethost.Project, to *pethost.Workspa
 		screen.Info("  Your own domains answer there once their CNAME points at %s: %s.", ui.Clean(to.Hostname), strings.Join(own, ", "))
 	}
 	screen.Info("  SSH, SFTP and tunnels log in at %s, with that workspace's SSH keys.", ui.Clean(to.Hostname))
+}
+
+// underDomain says whether the host is the domain itself, which a route may be too, or a name
+// under it; "" is none.
+func underDomain(host, domain string) bool {
+	return domain != "" && (host == domain || strings.HasSuffix(host, "."+domain))
 }
 
 // showAddress writes the project's address there alone on stdout, when it has one.

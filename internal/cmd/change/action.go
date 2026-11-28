@@ -19,20 +19,18 @@ import (
 func act(ctx context.Context, a *app.App, project target.Project, noQueue bool, doing string, action pethost.RunProjectActionAction) (*pethost.RunProjectActionResponse, error) {
 	client := a.Client()
 
-	answer, err := operation.Queue(ctx, a, project, noQueue, func() (*pethost.RunProjectActionResponse, error) {
+	return operation.Queue(ctx, a, project, noQueue, func() (*pethost.RunProjectActionResponse, error) {
 		live := a.UI.Live(doing)
-		defer live.Stop()
-
-		return client.RunProjectAction(ctx, &pethost.RunProjectActionRequest{
+		answer, err := client.RunProjectAction(ctx, &pethost.RunProjectActionRequest{
 			ProjectID:   project.ID,
 			Action:      action,
 			WaitSeconds: new(uint32(0)), // An operation answers once it started, and is watched.
 		})
+		live.Stop()
+
+		sayMayRunOn(ctx, a, project, err)
+		return answer, err
 	})
-	if err != nil {
-		sayMayRunOn(ctx, a, project)
-	}
-	return answer, err
 }
 
 // operate runs an action that is an operation and takes the operation to its end.
@@ -43,5 +41,5 @@ func operate(ctx context.Context, a *app.App, project target.Project, noQueue bo
 	}
 
 	call := &operation.Result{Operation: answer.Operation, Project: answer.Project, LogEnd: answer.Log, Answer: answer}
-	return finish(ctx, a, project, call, words)
+	return operation.Finish(ctx, a, project, call, words)
 }

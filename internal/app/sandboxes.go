@@ -16,7 +16,7 @@ func (a *App) Sandboxes() *sandboxes.Client {
 		current, _ := a.SignIn()
 		given, _ := a.GivenWorkspace()
 		a.sandboxes = sandboxes.NewClient(sandboxes.Config{
-			Token: current.Token, BaseURL: current.URL, HTTPClient: a.debugClient(), Workspace: given,
+			Token: current.Token, BaseURL: current.URL, HTTPClient: a.HTTPClient(), Workspace: given,
 		})
 	}
 	return a.sandboxes

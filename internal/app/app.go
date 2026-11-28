@@ -135,7 +135,7 @@ func (a *App) Client() *pethost.Client {
 	if a.client == nil {
 		current, _ := a.SignIn()
 		a.client = pethost.NewClient(pethost.Config{
-			Token: current.Token, BaseURL: current.URL, HTTPClient: a.debugClient(), Workspace: a.workspace,
+			Token: current.Token, BaseURL: current.URL, HTTPClient: a.HTTPClient(), Workspace: a.workspace,
 		})
 	}
 	return a.client

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"os"
-	"slices"
 	"strings"
 	"time"
 
@@ -109,18 +108,14 @@ func NoMachineMessage(detail *pethost.NoMachine) string {
 }
 
 // ChoiceMessage says that a call needs a workspace, and which there are: a line for each, its
-// name and what say.Workspace says of it, marked where it holds the project the call named.
+// name and what say.Workspace says of it, with whether it holds the project the call named.
 func ChoiceMessage(code pethost.Code, choice *pethost.WorkspaceChoice) string {
 	lines := []string{"This sign-in may act in " + ui.Plural(uint64(choice.Total), "workspace") + ", and the command names none:"}
 	if code == pethost.CodeInvalidArgument {
 		lines[0] = "The workspace named is none of the ones this sign-in may act in:"
 	}
 	for _, workspace := range choice.Workspaces {
-		line := "  " + ui.Clean(workspace.Name) + ": " + say.Workspace(&workspace)
-		if slices.Contains(choice.HoldingProject, workspace.WorkspaceID) {
-			line += " · has the project"
-		}
-		lines = append(lines, line)
+		lines = append(lines, "  "+ui.Clean(workspace.Name)+": "+say.Workspace(&workspace, choice.HoldingProject))
 	}
 	if more := int(choice.Total) - len(choice.Workspaces); more > 0 {
 		lines = append(lines, "  and "+ui.Count(uint64(more))+" more: pethost workspaces")

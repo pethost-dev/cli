@@ -70,7 +70,7 @@ type move struct {
 	switches []pethost.DatabaseSwitch
 }
 
-var words = operation.Words{Doing: "Moving…", Done: "Moved", Failed: "Move failed"}
+var words = operation.Words{Doing: "Moving…", Failed: "Move failed"}
 
 // run is the move in its steps: the project, the question, the call, its operation watched to
 // its end, and the project where it landed.
@@ -93,7 +93,7 @@ func (m *move) run(ctx context.Context, to string) error {
 		return m.refused(err)
 	}
 
-	done, err := m.watch(ctx, answer)
+	done, err := operation.Finish(ctx, m.a, m.project, &operation.Result{Operation: answer.Operation, Answer: answer}, words)
 	if err != nil {
 		return err
 	}
@@ -154,24 +154,6 @@ func (m *move) refused(err error) error {
 	}
 	e.Lead, e.Next = "Move it to one of these:", strings.Join(commands, "\n")
 	return e
-}
-
-// watch takes the move to its end, as the operation's log shows it. One that did not succeed
-// is reported in the machine's words.
-func (m *move) watch(ctx context.Context, answer *pethost.MoveProjectResponse) (*operation.Result, error) {
-	done := &operation.Result{Operation: answer.Operation, Answer: answer}
-	if answer.Operation == nil || answer.Operation.FinishTime.IsZero() {
-		watched, err := operation.Watch(ctx, m.a, m.project, answer.Operation, words.Doing)
-		if err != nil {
-			return nil, err
-		}
-		done = watched
-	}
-
-	if done.Operation.Status != pethost.OperationStatusSucceeded {
-		return nil, m.a.WithAnswer(done.Answer, done.Report(ctx, m.a, m.project, words))
-	}
-	return done, nil
 }
 
 // newOperationID is a move's own operation id, as the API takes one: letters and digits.

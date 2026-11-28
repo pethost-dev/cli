@@ -54,7 +54,7 @@ func (d *deploy) transferToUse(ctx context.Context) (*pethost.CreateTransferResp
 const startMargin = 15 * time.Second
 
 func (d *deploy) newTransfer(ctx context.Context) (*pethost.CreateTransferResponse, error) {
-	return d.client.CreateTransfer(ctx, &pethost.CreateTransferRequest{
+	return d.a.Client().CreateTransfer(ctx, &pethost.CreateTransferRequest{
 		Transfer: pethost.CreateTransferUploadArchive{FileName: filepath.Base(d.dir) + ".tgz"},
 	})
 }

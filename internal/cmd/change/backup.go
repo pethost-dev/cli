@@ -87,11 +87,9 @@ func readBackupState(ctx context.Context, a *app.App, projectID string) (*backup
 	client := a.Client()
 
 	state := &backupState{}
+	// The project's refusal comes first, as in app.MachineAndProject: for a call that needed a
+	// workspace, it is the one that says which ones hold the project.
 	err := app.Together(
-		func() (err error) {
-			state.machine, err = client.GetMachine(ctx, nil)
-			return err
-		},
 		func() error {
 			answer, err := client.GetProject(ctx, &pethost.GetProjectRequest{ProjectID: projectID})
 			switch {
@@ -104,6 +102,10 @@ func readBackupState(ctx context.Context, a *app.App, projectID string) (*backup
 			state.answer = answer
 			state.project = answer.Project
 			return nil
+		},
+		func() (err error) {
+			state.machine, err = client.GetMachine(ctx, nil)
+			return err
 		},
 	)
 	return state, err
@@ -148,7 +150,7 @@ func listSnapshots(ctx context.Context, a *app.App) error {
 	case a.JSON:
 		return a.PrintJSON(state.answer)
 	case state.project == nil && deleted != nil:
-		sayDeleted(a, deleted)
+		sayDeleted(a, project, deleted)
 		return nil
 	case state.project == nil:
 		a.UI.Info("%s is not on the machine, and the machine has not read the list of snapshots yet: whether any of its snapshots remain is not known.", id)
@@ -235,8 +237,9 @@ func snapshotsLine(project *pethost.Project, machine *pethost.Machine) string {
 	return line + " · each kept until it is " + kept + " older than the newest"
 }
 
-// sayDeleted writes what remains of a project that was deleted, and how to bring it back.
-func sayDeleted(a *app.App, deleted *pethost.DeletedProject) {
+// sayDeleted writes what remains of a project that was deleted, and how to bring it back: with
+// -p, since a .pethost that names it no longer resolves, and with -w where this run had one.
+func sayDeleted(a *app.App, project target.Project, deleted *pethost.DeletedProject) {
 	id := ui.Clean(deleted.ProjectID)
 	if deleted.NewestSnapshot == nil {
 		a.UI.Info("%s was deleted. Its snapshots remain: %d in all.", id, deleted.SnapshotCount)
@@ -245,5 +248,5 @@ func sayDeleted(a *app.App, deleted *pethost.DeletedProject) {
 	a.UI.Info("%s was deleted. Its snapshots remain: %d in all, the newest:", id, deleted.SnapshotCount)
 	printSnapshots(a.UI.Out, []pethost.Snapshot{*deleted.NewestSnapshot})
 	a.UI.Info("Bring it back as it was then:  %s",
-		a.UI.Err.Bold("pethost backup restore "+shortID(deleted.NewestSnapshot.SnapshotID)+" -p "+word(deleted.ProjectID)))
+		a.UI.Err.Bold("pethost backup restore "+shortID(deleted.NewestSnapshot.SnapshotID)+target.Project{ID: deleted.ProjectID, Workspace: project.Workspace}.Flag()))
 }

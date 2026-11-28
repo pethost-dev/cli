@@ -49,31 +49,27 @@ func Run(stamped string) int {
 	return code
 }
 
-// reruns is how many times a run is made again in another workspace: once where the person
-// picked the workspace a call needed, and once more where its project then turns out to have
-// moved.
-const reruns = 2
-
-// execute runs the command line, and again in the workspace target.Again settles on, with an
-// App of its own each time; it returns the last run's.
+// execute runs the command line, and once more with an App of its own in the workspace
+// target.Again settles on: the one the person picked where a call needed one, or the one a read's
+// project moved to. That run is given its workspace, so it follows no further move.
 func execute(ctx context.Context, newApp func() *app.App) (*app.App, *cobra.Command, error) {
 	a := newApp()
 	ran, err := tree(a).ExecuteContextC(ctx)
-	for range reruns {
-		if err == nil || answersAShell(ran) {
-			break
-		}
-		workspace, again, end := target.Again(ctx, a, err)
-		if end != nil {
-			return a, ran, end
-		}
-		if !again {
-			break
-		}
-		a = newApp()
-		a.Chosen = workspace
-		ran, err = tree(a).ExecuteContextC(ctx)
+	if err == nil || answersAShell(ran) {
+		return a, ran, err
 	}
+
+	workspace, again, end := target.Again(ctx, a, err)
+	switch {
+	case end != nil:
+		return a, ran, end
+	case !again:
+		return a, ran, err
+	}
+
+	a = newApp()
+	a.Chosen = workspace
+	ran, err = tree(a).ExecuteContextC(ctx)
 	return a, ran, err
 }
 

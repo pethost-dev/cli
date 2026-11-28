@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 
 	"github.com/pethost-dev/sdk/go/sandboxes"
 
@@ -25,9 +26,10 @@ func copyOut(ctx context.Context, a *app.App, from side, local string) error {
 	if from.sandbox, err = idOf(ctx, c, from.sandbox); err != nil {
 		return err
 	}
-	kind, err := kindOf(ctx, c, from.sandbox, from.path)
-	if err != nil {
-		return err
+	// The listing is asked for its refusals alone, which are typed where the link's are words: a
+	// sandbox stopped, a path missing. Whether the path is a directory, the download's answer says.
+	if _, err := c.ListFiles(ctx, &sandboxes.ListFilesRequest{SandboxID: from.sandbox, Path: from.path}); err != nil {
+		return about(from.sandbox, err)
 	}
 	link, err := linkFor(ctx, c, from.sandbox, sandboxes.CreateLinkDownloadPath(from.path))
 	if err != nil {
@@ -46,7 +48,7 @@ func copyOut(ctx context.Context, a *app.App, from side, local string) error {
 	switch {
 	case local == streamed:
 		err = toStdout(a, body)
-	case kind == sandboxes.FileKindDirectory:
+	case strings.HasPrefix(response.Header.Get("Content-Type"), "application/x-tar"):
 		err = extractTar(body, local)
 	default:
 		local, err = toFile(body, local, name)

@@ -51,10 +51,10 @@ func (d *deploy) readMachine(ctx context.Context) error {
 // as another account's (target.Elsewhere, Namesake). Where the account has several workspaces
 // and nothing names one, a terminal picks it, and the next commands name it with -w.
 func (d *deploy) getMachine(ctx context.Context) (*pethost.GetMachineResponse, error) {
-	answer, err := d.client.GetMachine(ctx, nil)
+	answer, err := d.a.Client().GetMachine(ctx, nil)
 	if d.notOurs(err) {
-		d.useWorkspace("")
-		answer, err = d.client.GetMachine(ctx, nil)
+		d.a.UseWorkspace("")
+		answer, err = d.a.Client().GetMachine(ctx, nil)
 	}
 
 	api, _ := errors.AsType[*pethost.Error](err)
@@ -66,8 +66,8 @@ func (d *deploy) getMachine(ctx context.Context) (*pethost.GetMachineResponse, e
 		return nil, err
 	}
 	d.a.Chosen = picked
-	d.useWorkspace(picked)
-	return d.client.GetMachine(ctx, nil)
+	d.a.UseWorkspace(picked)
+	return d.a.Client().GetMachine(ctx, nil)
 }
 
 // notOurs says whether a refusal is of the workspace the folder's .pethost names, as none of
@@ -117,7 +117,7 @@ func (d *deploy) waitForMachine(ctx context.Context, detail *pethost.NoMachine) 
 		case <-time.After(machineCheck):
 		}
 
-		answer, err := d.client.GetMachine(ctx, nil)
+		answer, err := d.a.Client().GetMachine(ctx, nil)
 		if noMachine(err) == nil {
 			return answer, err
 		}

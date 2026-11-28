@@ -33,11 +33,13 @@ func deploy(ctx context.Context, a *app.App, project target.Project, noQueue boo
 	request.WaitSeconds = new(uint32(deployWait))
 	answer, err := operation.Queue(ctx, a, project, noQueue, func() (*pethost.DeployProjectResponse, error) {
 		live := a.UI.Live("Asking your machine…")
-		defer live.Stop()
-		return client.DeployProject(ctx, request)
+		answer, err := client.DeployProject(ctx, request)
+		live.Stop()
+
+		sayMayRunOn(ctx, a, project, err)
+		return answer, err
 	})
 	if err != nil {
-		sayMayRunOn(ctx, a, project)
 		return nil, err
 	}
 	if len(answer.Violations) > 0 {
@@ -45,13 +47,14 @@ func deploy(ctx context.Context, a *app.App, project target.Project, noQueue boo
 	}
 
 	call := &operation.Result{Operation: answer.Operation, Project: answer.Project, LogEnd: answer.Log, Answer: answer}
-	return finish(ctx, a, project, call, words)
+	return operation.Finish(ctx, a, project, call, words)
 }
 
 // sayMayRunOn says, when Ctrl-C ended a call that changes the project, that the change may
-// have reached the machine all the same: what the machine has started it finishes.
-func sayMayRunOn(ctx context.Context, a *app.App, project target.Project) {
-	if ctx.Err() != nil {
+// have reached the machine all the same: what the machine has started it finishes. It is said
+// of the call itself, which err is the end of: a wait for the project's turn sent nothing.
+func sayMayRunOn(ctx context.Context, a *app.App, project target.Project, err error) {
+	if err != nil && ctx.Err() != nil {
 		a.UI.Info("The change may have reached your machine, where it runs on. See:  %s", a.UI.Err.Bold("pethost status"+project.Flag()))
 	}
 }

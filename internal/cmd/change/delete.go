@@ -165,16 +165,20 @@ func (d *deletion) sayDeleted(done *operation.Result, state *backupState) {
 	screen, id := d.a.UI, ui.Clean(d.project.ID)
 	screen.Done("Deleted %s in %s.", id, done.Took())
 
+	// A next command names it with -p, since a .pethost that names it no longer resolves, and
+	// with -w where this run had one.
+	again := target.Project{ID: d.project.ID, Workspace: d.project.Workspace}
+
 	switch snapshot := done.Operation.SnapshotID; {
 	case snapshot != "":
-		back := "pethost backup restore " + shortID(snapshot) + " -p " + word(d.project.ID)
+		back := "pethost backup restore " + shortID(snapshot) + again.Flag()
 		screen.Info("  Its snapshots stay. To bring it back as it was:  %s", screen.Err.Bold(back))
 	case !state.backupsOn():
 		screen.Info("  Backups were off: nothing of it is kept.")
 	case hasNoSnapshot(state.project):
 		screen.Info("  No final backup was taken, and it had no snapshot: nothing of it is kept.")
 	default:
-		screen.Info("  No final backup was taken. What snapshots it had stay:  %s", screen.Err.Bold("pethost backup -p "+word(d.project.ID)))
+		screen.Info("  No final backup was taken. What snapshots it had stay:  %s", screen.Err.Bold("pethost backup"+again.Flag()))
 	}
 	if d.project.Source == target.FromFile {
 		screen.Info("  This folder's %s still names it: the next %s here asks before it makes a project again.", target.FileName, screen.Err.Bold("pethost deploy"))

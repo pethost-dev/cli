@@ -57,10 +57,14 @@ kept the first time and must be the same from then on: a changed one is refused.
 		ValidArgsFunction: completeSandboxes(a),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id, command := args[0], ""
-			if dash := cmd.ArgsLenAtDash(); dash >= 0 && dash < len(args) {
-				command = joined(args[dash:])
-			} else if len(args) > 1 {
+			dash := cmd.ArgsLenAtDash()
+			switch {
+			case dash < 0 && len(args) > 1:
 				return fail.Usage("pethost sandbox shell: put -- before the program, as in  pethost sandbox shell <id> -- htop", cmd.UseLine())
+			case dash >= 0 && dash != 1:
+				return fail.Usage("pethost sandbox shell takes the sandbox's id before --", cmd.UseLine())
+			case dash == 1 && len(args) > 1:
+				command = joined(args[1:])
 			}
 			return shell(cmd.Context(), a, id, command)
 		},

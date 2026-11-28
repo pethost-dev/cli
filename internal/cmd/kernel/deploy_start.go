@@ -24,7 +24,7 @@ func atOnce() *uint32 {
 // start starts the deploy of the uploaded folder and returns its operation.
 func (d *deploy) start(ctx context.Context, uploadID string) (*pethost.Operation, error) {
 	if d.create {
-		answer, err := d.client.CreateProject(ctx, &pethost.CreateProjectRequest{
+		answer, err := d.a.Client().CreateProject(ctx, &pethost.CreateProjectRequest{
 			ProjectID: d.project.ID, UploadID: uploadID, WaitSeconds: atOnce(), XPethost: d.noRoutes(),
 		})
 		if err != nil {
@@ -35,7 +35,7 @@ func (d *deploy) start(ctx context.Context, uploadID string) (*pethost.Operation
 	}
 
 	answer, err := operation.Queue(ctx, d.a, d.project, *d.noQueue, func() (*pethost.DeployProjectResponse, error) {
-		return d.client.DeployProject(ctx, &pethost.DeployProjectRequest{
+		return d.a.Client().DeployProject(ctx, &pethost.DeployProjectRequest{
 			ProjectID: d.project.ID, Version: pethost.DeployProjectUploadID(uploadID), WaitSeconds: atOnce(),
 		})
 	})

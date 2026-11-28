@@ -11,9 +11,9 @@ import (
 // to start and the HTTP status it started with. A request's headers hold the token and are never
 // written.
 
-// debugClient is the HTTP client the SDK calls through with --debug; nil without it, and the
-// SDK then uses its own.
-func (a *App) debugClient() *http.Client {
+// HTTPClient is the HTTP client an SDK client of this run calls through: --debug's, which
+// writes a line per call; nil without it, and the SDK uses its own.
+func (a *App) HTTPClient() *http.Client {
 	if !a.Debug {
 		return nil
 	}

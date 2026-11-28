@@ -130,13 +130,9 @@ func oldFile(a *app.App) bool {
 func PickWorkspace(a *app.App, choice *pethost.WorkspaceChoice) (string, error) {
 	choices := make([]ui.Choice, len(choice.Workspaces))
 	for i, workspace := range choice.Workspaces {
-		detail := say.Workspace(&workspace)
-		if slices.Contains(choice.HoldingProject, workspace.WorkspaceID) {
-			detail += " · has the project"
-		}
 		choices[i] = ui.Choice{
 			Label:   ui.Clean(workspace.Name),
-			Detail:  detail,
+			Detail:  say.Workspace(&workspace, choice.HoldingProject),
 			Command: a.InWorkspace(workspace.WorkspaceID),
 		}
 	}
